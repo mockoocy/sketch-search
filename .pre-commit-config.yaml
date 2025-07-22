@@ -1,0 +1,31 @@
+%YAML 1.2
+
+---
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: \.(hkli|nml|XDS)$
+      - id: end-of-file-fixer
+        exclude: \.(hkli|nml)$
+      - id: check-case-conflict
+      - id: check-merge-conflict
+        # Exclude files where underlines are not distinguishable from merge conflicts.
+        exclude: /README\.rst$|^docs/.*\.rst$
+      - id: check-symlinks
+      - id: mixed-line-ending
+        args: ["--fix=lf"]
+
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.9.10  # Keep in sync with `poetry.lock` and `pyproject.toml`
+    hooks:
+      # For the `ruff` hook (which runs `ruff check`),
+      # we purposefully skip the `--fix` option,
+      # and recommend running something like `poetry run ruff --fix` locally instead.
+      - id: ruff
+      - id: ruff-format
+
+
+...

@@ -1,0 +1,15 @@
+select = ["ALL"]
+ignore = [
+  "D", # Docstring issues
+  "FA102", # Blocks "|" type union operator usage, even though it is valid in Python 3.10+,
+    "PLR2004", # Blocks magic values, but checking for dimensions is not 'magic'
+
+
+  ]
+
+[lint.per-file-ignores]
+"**/tests/**" = [
+    "S101", # Blocks usage of assert,
+    "FBT001",
+
+]
