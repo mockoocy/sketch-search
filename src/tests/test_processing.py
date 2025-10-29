@@ -1,11 +1,9 @@
 import torch
-
-from src.processing import (
+from sktr.processing import (
     binarize_by_percentile,
     binary_thinning,
-    make_jigsaw_puzzle,
 )
-from src.type_defs import GrayTorchBatch, RGBTorchBatch
+from sktr.type_defs import GrayTorchBatch
 from tests.conftest import VisualizeFunction
 
 
@@ -71,24 +69,3 @@ def test_percentile_binarization(
         percentile_as_rgb = percentile_binarized_images.unsqueeze(1).repeat(1, 3, 1, 1)
         sketches_as_rgb = sketch_image_batch.unsqueeze(1).repeat(1, 3, 1, 1)
         visualize(sketches_as_rgb, percentile_as_rgb)
-
-
-def test_jigsaw_puzzle(
-    photo_image_batch: RGBTorchBatch,
-    sketch_image_batch: GrayTorchBatch,
-    visualize: VisualizeFunction | None,
-) -> None:
-    grid_side = 3
-    puzzle, src_mask = make_jigsaw_puzzle(
-        photo_image_batch,
-        sketch_image_batch,
-        generator=torch.Generator().manual_seed(42),
-        grid_side=grid_side,
-    )
-
-    assert puzzle.shape == (photo_image_batch.shape[0], 3, 224, 224)
-    assert src_mask.shape == (photo_image_batch.shape[0], grid_side * grid_side)
-
-    if visualize:
-        sketch_rgb = sketch_image_batch.unsqueeze(1).repeat(1, 3, 1, 1)
-        visualize(photo_image_batch, sketch_rgb, puzzle)  # Visualize the jigsaw puzzle

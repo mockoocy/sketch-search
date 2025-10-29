@@ -1,7 +1,7 @@
 import torch
 import torch.nn.functional as F  # noqa: N812 - widely recognized convention
 
-from src.type_defs import GrayTorchBatch, RGBTorchBatch, SourceMaskBatch
+from sktr.type_defs import GrayTorchBatch, RGBTorchBatch, SourceMaskBatch
 
 # fmt: off
 _G123_LUT = torch.tensor(

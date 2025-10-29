@@ -1,16 +1,19 @@
-from pathlib import Path
+from pathlib import Path, PosixPath
 from typing import Literal, Protocol
 
 import matplotlib.pyplot as plt
 import pytest
 import torch
-import torchvision.transforms.v2 as T  # noqa: N812 - widely recognized convention
+import torchvision.transforms.v2 as transforms
 from torch.utils.data import DataLoader
 from torchvision import io
 from torchvision.utils import make_grid
 
-from src.photo_sketch_dataset import build_loader
-from src.type_defs import Batch, GrayTorchBatch, RGBTorchBatch
+from sktr.photo_sketch_dataset import build_loader, get_samples_from_directories
+from sktr.type_defs import GrayTorchBatch, RGBTorchBatch, Sample
+from sktr.vector import EvaluationStore
+
+IMG_SIZE = (224, 224)
 
 
 class VisualizeFunction(Protocol):
@@ -31,20 +34,20 @@ def _batch_images(
         io_mode = io.ImageReadMode.GRAY if mode == "gray" else io.ImageReadMode.RGB
         img = io.read_image(str(img_path), mode=io_mode)  # [B, C, H, W], C = 1 | 3
         img = img.float() / 255.0
-        img = T.Resize((224, 224))(img)
+        img = transforms.Resize(IMG_SIZE)(img)
         images.append(img)
     return torch.stack(images, dim=0)
 
 
 @pytest.fixture(scope="session")
 def sketch_image_batch() -> GrayTorchBatch:
-    img_paths = list((IMG_DIR / "sketches/").glob("*.png"))
+    img_paths = list((IMG_DIR / "sketches/").rglob("*.png"))
     return _batch_images(img_paths, mode="gray").squeeze(1)
 
 
 @pytest.fixture(scope="session")
 def photo_image_batch() -> RGBTorchBatch:
-    img_paths = list((IMG_DIR / "photos").glob("*.jpg"))
+    img_paths = list((IMG_DIR / "photos").rglob("*.jpg"))
     return _batch_images(img_paths)
 
 
@@ -55,9 +58,6 @@ def visualize(
     if not request.config.getoption("--visualize"):
         return None
 
-    # creates a 3x2 image grid, with each image resized to 224x224
-    # Then it is stored in OUT_DIR
-    # use matplotlib to visualize the images
     def _save_grid(*batches: RGBTorchBatch) -> None:
         if not all(batch.shape == batches[0].shape for batch in batches):
             err_msg = "All input batches must have the same shape for visualization."
@@ -99,15 +99,28 @@ def pytest_addoption(parser: pytest.Parser) -> None:
     )
 
 
-@pytest.fixture(scope="session", params=[False, True], ids=["plain", "jigsaw"])
-def dataloader(request: pytest.FixtureRequest) -> DataLoader[Batch]:
+@pytest.fixture(scope="session")
+def dataloader(request: pytest.FixtureRequest) -> DataLoader[Sample]:
+    sample_paths, _, _ = get_samples_from_directories(
+        images_root=IMG_DIR / "photos",
+        sketches_root=IMG_DIR / "sketches",
+        val_fraction=0.0,
+        test_fraction=0.0,
+    )
+
+    transform = transforms.Resize(IMG_SIZE)
+
     return build_loader(
-        image_paths=sorted((IMG_DIR / "photos").glob("*.jpg")),
-        sketch_paths=sorted((IMG_DIR / "sketches").glob("*.png")),
+        samples=sample_paths,
         batch_size=4,
         shuffle=True,
         num_workers=0,
-        pin_memory=False,
-        use_jigsaw=request.param,
-        grid_side=3,
+        photo_transform=transform,
+        sketch_transform=transform,
     )
+
+
+@pytest.fixture(scope="function")
+def eval_store(tmp_path: PosixPath) -> EvaluationStore:
+    db_path = tmp_path / "milvus_lite.db"
+    return EvaluationStore(embedding_size=2, store_path=db_path)
