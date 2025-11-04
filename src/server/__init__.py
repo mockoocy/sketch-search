@@ -1,6 +1,7 @@
 from server.server import APP
 import uvicorn
 
+
 def serve():
     uvicorn.run(
         APP,

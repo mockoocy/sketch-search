@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 from sqlmodel import SQLModel, Field
 
+
 class LoginAttempt(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     email: str = Field(index=True)
@@ -10,6 +11,7 @@ class LoginAttempt(SQLModel, table=True):
     reason: Optional[str] = None
     ip: Optional[str] = None
     ts: datetime = Field(default_factory=datetime.utcnow)
+
 
 class OtpCode(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
@@ -21,8 +23,10 @@ class OtpCode(SQLModel, table=True):
     consumed: bool = False
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
+
 def utcnow() -> datetime:
     return datetime.utcnow()
+
 
 def plus(seconds: int) -> datetime:
     return utcnow() + timedelta(seconds=seconds)

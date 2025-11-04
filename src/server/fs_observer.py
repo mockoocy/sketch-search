@@ -27,6 +27,7 @@ class ImageFsEvent(StrEnum):
     def signal(self) -> Signal:
         return self._signal
 
+
 class ImageWatcherHandler(PatternMatchingEventHandler):
     def __init__(self):
         super().__init__(

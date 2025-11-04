@@ -11,11 +11,13 @@ from server.fs_observer import (
     ImageFsEvent,
 )
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     app.state.observer = start_observer()
     yield
     shutdown_observer(app.state.observer)
+
 
 APP = FastAPI(lifespan=lifespan)
 
@@ -45,7 +47,6 @@ async def fs_events(request: Request) -> AsyncGenerator[str, None]:
             event.signal.disconnect(_handler)
 
 
-
 @APP.get("/events")
-async def get_events(request: Request)-> StreamingResponse:
+async def get_events(request: Request) -> StreamingResponse:
     return StreamingResponse(fs_events(request), media_type="text/event-stream")

@@ -20,6 +20,7 @@ class SMTPConfig(BaseModel):
     password: str
     from_address: str
 
+
 class OTPAuthConfig(BaseModel):
     kind: Literal["otp"] = Field(default="otp")
     code_length: int = Field(default=6)
@@ -27,6 +28,7 @@ class OTPAuthConfig(BaseModel):
     # Number of allowed attempts before invalidating the OTP
     max_attempts: int = Field(default=5)
     smtp: SMTPConfig
+
 
 class NoAuthConfig(BaseModel):
     kind: Literal["none"] = Field(default="none")
