@@ -7,6 +7,7 @@ from torch.utils.data import DataLoader
 
 from sktr.type_defs import Batch, Sample
 
+
 def test_dcl_loss():
     photo_embeddings = torch.randn(8, 512)
     sketch_embeddings = torch.randn(8, 512)
@@ -123,9 +124,7 @@ def test_cpu_forward_and_train_smoke(dataloader: DataLoader[Sample]) -> None:
             break
         photos = batch["photo"]  # [B,3,H,W]
         sketches = batch["sketch"]
-        photo_embeddings, sketch_embeddings = model(
-            photos, sketches
-        )
+        photo_embeddings, sketch_embeddings = model(photos, sketches)
         loss = dcl_loss(photo_embeddings, sketch_embeddings, temperature=0.2)
         assert torch.isfinite(loss).item()
         total_loss += float(loss.detach().cpu())

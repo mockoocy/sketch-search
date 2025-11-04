@@ -51,7 +51,9 @@ class PhotoSketchDataset(Dataset[Sample]):
     @torch.no_grad()
     def _load_sketch(self, path: Path) -> GrayTorch:
         try:
-            sketch = io.read_image(str(path), mode=io.ImageReadMode.GRAY).float() / 255.0
+            sketch = (
+                io.read_image(str(path), mode=io.ImageReadMode.GRAY).float() / 255.0
+            )
         except RuntimeError as e:
             print(f"Error loading image {path}: {e}")
             raise e
@@ -60,7 +62,9 @@ class PhotoSketchDataset(Dataset[Sample]):
         # Averaging there may be not the best idea, but works for now.
         # It may distort values, since the transform may include
         # normalization, but it is ok for now.
-        res = self.sketch_transform(sketch.repeat(3,1,1)).mean(dim=0)  # [3, H, W] -> [H, W]
+        res = self.sketch_transform(sketch.repeat(3, 1, 1)).mean(
+            dim=0
+        )  # [3, H, W] -> [H, W]
         return res
 
     def __getitem__(self, idx: int) -> Sample:
@@ -80,7 +84,7 @@ class PhotoSketchDataset(Dataset[Sample]):
 
 
 def _collate_fn(batch: list[Sample]) -> Batch:
-    """Custom collate function for DataLoader.""" 
+    """Custom collate function for DataLoader."""
     return {
         "photo": torch.stack([item.photo for item in batch]),
         "sketch": torch.stack([item.sketch for item in batch]),
@@ -90,6 +94,7 @@ def _collate_fn(batch: list[Sample]) -> Batch:
 
 def _worker_init(_):
     torch.set_num_threads(1)
+
 
 def build_loader(
     samples: list[SamplePath],
@@ -127,8 +132,12 @@ def build_loader(
 
 
 def get_samples_from_directories(
-    images_root: Path, sketches_root: Path, per_category_fraction: float = 1.0,
-    val_fraction: float = 0.1, test_fraction: float = 0.1, seed: int = 42,
+    images_root: Path,
+    sketches_root: Path,
+    per_category_fraction: float = 1.0,
+    val_fraction: float = 0.1,
+    test_fraction: float = 0.1,
+    seed: int = 42,
 ) -> tuple[list[SamplePath], list[SamplePath], list[SamplePath]]:
     """Assembles collection of (image, sketch) pairs.
 
@@ -188,11 +197,15 @@ def get_samples_from_directories(
             )
 
     random.shuffle(category_dirs)
-    unseen_classes_count =int(
-        len(category_dirs) * (val_fraction + test_fraction)
+    unseen_classes_count = int(len(category_dirs) * (val_fraction + test_fraction))
+    unseen_classes = set(
+        category_dir.name for category_dir in category_dirs[:unseen_classes_count]
     )
-    unseen_classes = set(category_dir.name for category_dir in category_dirs[:unseen_classes_count])
-    unseen_test_fraction = test_fraction / (val_fraction + test_fraction) if (val_fraction + test_fraction) > 0 else 0.0
+    unseen_test_fraction = (
+        test_fraction / (val_fraction + test_fraction)
+        if (val_fraction + test_fraction) > 0
+        else 0.0
+    )
 
     train_samples: list[SamplePath] = []
     val_samples: list[SamplePath] = []

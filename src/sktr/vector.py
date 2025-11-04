@@ -21,7 +21,6 @@ class EvaluationStore:
         self._cat_counts: dict[str, int] = {}
         self.client = self._create_client()
 
-
     def __len__(self) -> int:
         stats = self.client.get_collection_stats(LOCAL_EMBEDDINGS_COLLECTION)
         return int(stats["row_count"])
@@ -144,7 +143,6 @@ class EvaluationStore:
             consistency_level="Strong",
         )
 
-
     def mean_average_precision_at_k(
         self, top_k: int, query_embeddings: EmbeddingBatch, query_categories: list[str]
     ) -> float:
@@ -192,10 +190,13 @@ class EvaluationStore:
         )  # [len(search_results), result_count]
         query_category_vector = np.array(query_categories, dtype=object).reshape(
             len(search_results), 1
-        ) # [len(search_results), 1]
-        relevant_matrix = category_matrix == query_category_vector # [len(search_results), result_count]
-        ranks_matrix = np.arange(1, result_count + 1, dtype=np.float32) # [result_count]
-
+        )  # [len(search_results), 1]
+        relevant_matrix = (
+            category_matrix == query_category_vector
+        )  # [len(search_results), result_count]
+        ranks_matrix = np.arange(
+            1, result_count + 1, dtype=np.float32
+        )  # [result_count]
 
         precision_matrix = (
             relevant_matrix.cumsum(axis=1).astype(np.float32) / ranks_matrix

@@ -14,9 +14,11 @@ class TrainingSettings(BaseModel):
     test_fraction: float = Field(default=0.0, ge=0.0, le=1.0)
     model_save_path: str = "./models/"
 
+
 class ValidationSettings(BaseModel):
     validation_fraction: float = Field(default=0.1, ge=0.0, le=1.0)
     eval_every_steps: int = Field(default=100, gt=0)
+
 
 class SkitterSettings(BaseModel):
     projection_head_size: int = Field(default=256, gt=0, le=4096)

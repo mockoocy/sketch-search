@@ -1,6 +1,7 @@
 from pathlib import Path
 import torch
 import yaml
+
 # konfiugracja jako model pydantic
 from sktr.config.config_model import Config
 
