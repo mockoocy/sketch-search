@@ -1,14 +1,15 @@
-from typing import Protocol
-import torch
-import torch.nn as nn
+from typing import Literal, Protocol
+
 import timm
+import torch
+from torch import nn
 
 from sktr.config.config import DEVICE
 from sktr.type_defs import (
     EmbeddingBatch,
+    GrayTorchBatch,
     Loss,
     RGBTorchBatch,
-    GrayTorchBatch,
 )
 
 
@@ -32,10 +33,13 @@ class TimmBackbone(nn.Module):
         feature_dim: dimensionality C of the pooled feature
     """
 
-    def __init__(self, name: str, pretrained: bool = True):
+    def __init__(self, name: str, *, pretrained: bool = True) -> None:
         super().__init__()
         self.model = timm.create_model(
-            name, pretrained=pretrained, num_classes=0, global_pool="avg"
+            name,
+            pretrained=pretrained,
+            num_classes=0,
+            global_pool="avg",
         )
         self.feature_dim = self.model.num_features
 
@@ -51,7 +55,7 @@ class TimmBackbone(nn.Module):
             features: [B, C] pooled features (float32)
         """
         # [B, H, W] -> [B, 3, H, W]
-        # TODO: use ndim, because it'd break for batch_size of 3 :D
+        # It can break for batch_size of 3 :D
         return self.model(image if image.shape[1] == 3 else self._gray_to_rgb(image))
 
     def forward_features(self, image: RGBTorchBatch | GrayTorchBatch) -> torch.Tensor:
@@ -64,7 +68,7 @@ class TimmBackbone(nn.Module):
             features: [B, C, H_out, W_out] unpooled features (float32)
         """
         return self.model.forward_features(
-            image if image.shape[1] == 3 else self._gray_to_rgb(image)
+            image if image.shape[1] == 3 else self._gray_to_rgb(image),
         )
 
 
@@ -95,7 +99,8 @@ def dcl_loss(
     cross_similarity = (
         photo_embeddings @ sketch_embeddings.t()
     ) / temperature  # [B, B]
-    # On the diagonal, we have the similarity between the same photo and corresponding sketch.
+    # On the diagonal, we have the similarity between
+    # the same photo and corresponding sketch.
     positive_loss = -torch.diag(cross_similarity)
     # For the negative loss, we will want to compare every other similarity;
 
@@ -122,7 +127,9 @@ def dcl_loss(
     # We want to mask the diagonals, because we do not want to compare
     # the same photo with itself or the same sketch with itself.
     negative_mask = torch.eye(
-        batch_size, device=photo_embeddings.device, dtype=torch.bool
+        batch_size,
+        device=photo_embeddings.device,
+        dtype=torch.bool,
     ).repeat(1, 4)
     negative_loss = torch.logsumexp(
         # Each row of this matrix will contain similarities between
@@ -135,7 +142,8 @@ def dcl_loss(
         all_similarities.masked_fill(negative_mask, -torch.inf),
         dim=1,
     )  # [B]
-    # Edge case: if whole row is filled with zeroes, ... somehow, logsumexp will return -inf.
+    # Edge case: if whole row is filled with zeroes, ... somehow,
+    # logsumexp will return -inf.
     return (
         positive_loss + torch.nan_to_num(negative_loss, nan=0.0, posinf=0.0, neginf=0.0)
     ).mean()
@@ -157,7 +165,8 @@ def one_way_dcl_loss(
         torch.cat((inter_anchor_distance, cross_similarity), dim=1) / temperature
     )
     neg_mask = torch.eye(batch_size, device=anchor.device, dtype=torch.bool).repeat(
-        1, 2
+        1,
+        2,
     )
     negative_loss = torch.logsumexp(
         neg_similarity.masked_fill(neg_mask, -torch.inf),
@@ -207,13 +216,23 @@ class SupConLoss(nn.Module):
     """Supervised Contrastive Learning: https://arxiv.org/pdf/2004.11362.pdf.
     It also supports the unsupervised contrastive loss in SimCLR"""
 
-    def __init__(self, temperature=0.1, contrast_mode="all", base_temperature=0.1):
-        super(SupConLoss, self).__init__()
+    def __init__(
+        self,
+        temperature: float = 0.1,
+        contrast_mode: Literal["all", "one"] = "all",
+        base_temperature: float = 0.1,
+    ) -> None:
+        super().__init__()
         self.temperature = temperature
         self.contrast_mode = contrast_mode
         self.base_temperature = base_temperature
 
-    def forward(self, features, labels=None, mask=None):
+    def forward(
+        self,
+        features: torch.Tensor,
+        labels: torch.Tensor | None = None,
+        mask: torch.Tensor | None = None,
+    ) -> torch.Tensor:
         """Compute loss for model. If both `labels` and `mask` are None,
         it degenerates to SimCLR unsupervised loss:
         https://arxiv.org/pdf/2002.05709.pdf
@@ -221,7 +240,8 @@ class SupConLoss(nn.Module):
         Args:
             features: hidden vector of shape [batch_size,  D].
             labels: ground truth of shape [batch_size].
-            mask: contrastive mask of shape [batch_size, batch_size], mask_{i,j}=1 if sample j
+            mask: contrastive mask of shape [batch_size, batch_size],
+                mask_{i,j}=1 if sample j
                 has the same class as sample i. Can be asymmetric.
         Returns:
             A loss scalar.
@@ -229,13 +249,15 @@ class SupConLoss(nn.Module):
 
         batch_size = features.shape[0]
         if labels is not None and mask is not None:
-            raise ValueError("Cannot define both `labels` and `mask`")
-        elif labels is None and mask is None:
+            err_msg = "Cannot define both `labels` and `mask`"
+            raise ValueError(err_msg)
+        if labels is None and mask is None:
             mask = torch.eye(batch_size, dtype=torch.float32).to(DEVICE)
         elif labels is not None:
             labels = labels.contiguous().view(-1, 1)
             if labels.shape[0] != batch_size:
-                raise ValueError("Num of labels does not match num of features")
+                err_msg = "Num of labels does not match num of features"
+                raise ValueError(err_msg)
             mask = torch.eq(labels, labels.T).float().to(DEVICE)
         else:
             mask = mask.float().to(DEVICE)
@@ -250,11 +272,13 @@ class SupConLoss(nn.Module):
             anchor_feature = contrast_feature
             anchor_count = contrast_count
         else:
-            raise ValueError("Unknown mode: {}".format(self.contrast_mode))
+            err_msg = f"Unknown mode: {self.contrast_mode}"
+            raise ValueError(err_msg)
 
         # compute logits
         anchor_dot_contrast = torch.div(
-            torch.matmul(anchor_feature, contrast_feature.T), self.temperature
+            torch.matmul(anchor_feature, contrast_feature.T),
+            self.temperature,
         )
         # for numerical stability
         logits_max, _ = torch.max(anchor_dot_contrast, dim=1, keepdim=True)
@@ -278,19 +302,12 @@ class SupConLoss(nn.Module):
         # compute mean of log-likelihood over positive
         # modified to handle edge cases when there is no positive pair
         # for an anchor point.
-        # Edge case e.g.:-
-        # features of shape: [4,1,...]
-        # labels:            [0,1,1,2]
-        # loss before mean:  [nan, ..., ..., nan]
         mask_pos_pairs = mask.sum(1)
         mask_pos_pairs = torch.where(mask_pos_pairs < 1e-6, 1, mask_pos_pairs)
         mean_log_prob_pos = (mask * log_prob).sum(1) / mask_pos_pairs
 
-        # loss
         loss = -(self.temperature / self.base_temperature) * mean_log_prob_pos
-        loss = loss.view(anchor_count, batch_size).mean()
-
-        return loss
+        return loss.view(anchor_count, batch_size).mean()
 
 
 class SKTR(nn.Module):
@@ -299,7 +316,7 @@ class SKTR(nn.Module):
         encoder: TimmBackbone,
         hidden_layer_size: int = 2048,
         embedding_size: int = 512,
-    ):
+    ) -> None:
         super().__init__()
 
         self.encoder = encoder
@@ -315,7 +332,9 @@ class SKTR(nn.Module):
         )
 
     def forward(
-        self, photo: RGBTorchBatch, sketch: GrayTorchBatch
+        self,
+        photo: RGBTorchBatch,
+        sketch: GrayTorchBatch,
     ) -> tuple[EmbeddingBatch, EmbeddingBatch]:
         """
         Forward pass through the model.
@@ -336,7 +355,9 @@ class SKTR(nn.Module):
         photo_sketch_features = self.encoder(photo_sketch_batch)
         photo_sketch_embeddings = self.projection_head(photo_sketch_features)
         photo_embeddings, sketch_embeddings = torch.split(
-            photo_sketch_embeddings, [photo.size(0), sketch.size(0)], dim=0
+            photo_sketch_embeddings,
+            [photo.size(0), sketch.size(0)],
+            dim=0,
         )
         return photo_embeddings, sketch_embeddings
 
@@ -351,8 +372,7 @@ class SKTR(nn.Module):
             Embeddings for the photos.
         """
         photo_features = self.encoder(photo)
-        photo_embeddings = self.projection_head(photo_features)
-        return photo_embeddings
+        return self.projection_head(photo_features)
 
     def embed_sketch(self, sketch: GrayTorchBatch) -> EmbeddingBatch:
         """
@@ -365,5 +385,4 @@ class SKTR(nn.Module):
             Embeddings for the sketches.
         """
         sketch_features = self.encoder(sketch)
-        sketch_embeddings = self.projection_head(sketch_features)
-        return sketch_embeddings
+        return self.projection_head(sketch_features)

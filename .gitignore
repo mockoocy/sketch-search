@@ -18,3 +18,10 @@ data/sketches/*
 tmp/
 runs/
 models/
+
+# This is so that me (a dumb human)
+# won't accidentally commit my local config files
+# and I am sure that their location will be
+# a subject to change :D
+**/config.yaml
+**/server_config.yaml

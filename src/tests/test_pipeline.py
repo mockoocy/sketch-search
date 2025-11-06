@@ -1,14 +1,13 @@
-from sktr.model import SKTR, dcl_loss, TimmBackbone
-import torch
-
-import torch.nn.functional as fun
 import numpy as np
+import torch
+import torch.nn.functional as fun
 from torch.utils.data import DataLoader
 
+from sktr.model import SKTR, TimmBackbone, dcl_loss
 from sktr.type_defs import Batch, Sample
 
 
-def test_dcl_loss():
+def test_dcl_loss() -> None:
     photo_embeddings = torch.randn(8, 512)
     sketch_embeddings = torch.randn(8, 512)
     loss = dcl_loss(photo_embeddings, sketch_embeddings)
@@ -16,7 +15,7 @@ def test_dcl_loss():
     assert loss.ndim == 0
 
 
-def test_toy_dcl_loss():
+def test_toy_dcl_loss() -> None:
     temperature = 0.2
     photo_embedding_1 = fun.normalize(torch.tensor([0.4, 0.9]), dim=0)
     photo_embedding_2 = fun.normalize(torch.tensor([0.23, 0.12]), dim=0)
@@ -55,13 +54,13 @@ def test_toy_dcl_loss():
         torch.exp(photo1_sketch2_similarity / temperature)
         + torch.exp(photo1_photo2_similarity / temperature)
         + torch.exp(sketch1_photo2_similarity / temperature)
-        + torch.exp(sketch1_sketch2_similarity / temperature)
+        + torch.exp(sketch1_sketch2_similarity / temperature),
     )
     expected_negative_loss_batch_2 = torch.log(
         torch.exp(photo2_sketch1_similarity / temperature)
         + torch.exp(photo2_photo1_similarity / temperature)
         + torch.exp(sketch2_photo1_similarity / temperature)
-        + torch.exp(sketch2_sketch1_similarity / temperature)
+        + torch.exp(sketch2_sketch1_similarity / temperature),
     )
 
     exptected_loss = (
@@ -111,8 +110,10 @@ def test_cpu_forward_and_train_smoke(dataloader: DataLoader[Sample]) -> None:
 
     with torch.no_grad():
         p_emb, s_emb = model(photos, sketches)
-        assert p_emb.ndim == 2 and s_emb.ndim == 2
-        assert p_emb.shape[0] == photos.shape[0] and s_emb.shape[0] == photos.shape[0]
+        assert p_emb.ndim == 2
+        assert s_emb.ndim == 2
+        assert p_emb.shape[0] == photos.shape[0]
+        assert s_emb.shape[0] == photos.shape[0]
         loss = dcl_loss(p_emb, s_emb, temperature=0.2)
         assert torch.isfinite(loss).item()
 

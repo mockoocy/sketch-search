@@ -1,9 +1,10 @@
-from pathlib import Path
 import random
+from collections import defaultdict
+from pathlib import Path
+
 import torch
 from torch.utils.data import DataLoader, Dataset
 from torchvision import io
-from sktr.config.config import DEVICE
 
 from sktr.type_defs import (
     Batch,
@@ -13,7 +14,6 @@ from sktr.type_defs import (
     Sample,
     SamplePath,
 )
-from collections import defaultdict
 
 # formats supported by torchivision.io.read_image
 IMG_EXTENSIONS = ["jpg", "jpeg", "png", "webp", "gif"]
@@ -29,9 +29,10 @@ class PhotoSketchDataset(Dataset[Sample]):
     def __init__(
         self,
         samples: list[SamplePath],
-        sketch_as_rgb: bool = False,
         photo_transform: ImageTransformFunction | None = None,
         sketch_transform: ImageTransformFunction | None = None,
+        *,
+        sketch_as_rgb: bool = False,
     ) -> None:
         self.samples = samples
         self.sketch_as_rgb = sketch_as_rgb
@@ -50,22 +51,15 @@ class PhotoSketchDataset(Dataset[Sample]):
 
     @torch.no_grad()
     def _load_sketch(self, path: Path) -> GrayTorch:
-        try:
-            sketch = (
-                io.read_image(str(path), mode=io.ImageReadMode.GRAY).float() / 255.0
-            )
-        except RuntimeError as e:
-            print(f"Error loading image {path}: {e}")
-            raise e
+        sketch = io.read_image(str(path), mode=io.ImageReadMode.GRAY).float() / 255.0
         if self.sketch_transform is None:
             return sketch.squeeze(0)  # [1, H, W] -> [H, W]
         # Averaging there may be not the best idea, but works for now.
         # It may distort values, since the transform may include
         # normalization, but it is ok for now.
-        res = self.sketch_transform(sketch.repeat(3, 1, 1)).mean(
-            dim=0
+        return self.sketch_transform(sketch.repeat(3, 1, 1)).mean(
+            dim=0,
         )  # [3, H, W] -> [H, W]
-        return res
 
     def __getitem__(self, idx: int) -> Sample:
         """Get one sample from the dataset.
@@ -92,21 +86,22 @@ def _collate_fn(batch: list[Sample]) -> Batch:
     }
 
 
-def _worker_init(_):
+def _worker_init(_: int) -> None:
     torch.set_num_threads(1)
 
 
-def build_loader(
+def build_loader(  # noqa: PLR0913
     samples: list[SamplePath],
     batch_size: int = 32,
     num_workers: int = 0,
     photo_transform: ImageTransformFunction | None = None,
     sketch_transform: ImageTransformFunction | None = None,
-    shuffle: bool = True,  # noqa: FBT001, FBT002 - false positive
+    prefetch_factor: int = 4,
+    *,
+    shuffle: bool = True,
     sketch_as_rgb: bool = False,
     drop_last: bool = True,
     persistent_workers: bool = True,
-    prefetch_factor: int = 4,
 ) -> DataLoader[Sample]:
     """
     Returns a DataLoader ready for training/testing loops.
@@ -131,7 +126,7 @@ def build_loader(
     )
 
 
-def get_samples_from_directories(
+def get_samples_from_directories(  # noqa: PLR0913
     images_root: Path,
     sketches_root: Path,
     per_category_fraction: float = 1.0,
@@ -166,41 +161,40 @@ def get_samples_from_directories(
     """
     all_samples: defaultdict[str, list[SamplePath]] = defaultdict(list)
     random.seed(seed)
-    print(
-        f"directories (absolute): images: {images_root.resolve()}, sketches: {sketches_root.resolve()}"
-    )
     category_dirs = [
         directory for directory in images_root.iterdir() if directory.is_dir()
     ]
     for category_dir in category_dirs:
-        image_files = list(
+        image_files = [
             file
             for file in (category_dir).glob("*")
             if file.suffix[1:].lower() in IMG_EXTENSIONS
-        )
+        ]
         sketch_category = sketches_root / category_dir.name
-        sketch_files = list(
+        sketch_files = [
             file
             for file in sketch_category.glob("*")
             if file.suffix[1:].lower() in IMG_EXTENSIONS
-        )
+        ]
         number_of_samples = int(per_category_fraction * len(sketch_files))
         for sketch_path, image_path in zip(
-            sketch_files, random.choices(image_files, k=number_of_samples)
+            sketch_files,
+            random.choices(image_files, k=number_of_samples),  # noqa: S311 - not a cryptographic use
+            strict=False,
         ):
             all_samples[category_dir.name].append(
                 SamplePath(
                     photo=image_path,
                     sketch=sketch_path,
                     category=category_dir.name,
-                )
+                ),
             )
 
     random.shuffle(category_dirs)
     unseen_classes_count = int(len(category_dirs) * (val_fraction + test_fraction))
-    unseen_classes = set(
+    unseen_classes = {
         category_dir.name for category_dir in category_dirs[:unseen_classes_count]
-    )
+    }
     unseen_test_fraction = (
         test_fraction / (val_fraction + test_fraction)
         if (val_fraction + test_fraction) > 0

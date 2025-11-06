@@ -1,21 +1,19 @@
-from dataclasses import dataclass
-import os
-from pathlib import Path
 import time
+from dataclasses import dataclass
+from pathlib import Path
 
 import numpy as np
-import torch
-from sktr.config.config import CFG, DEVICE
-from sktr.model import SKTR, SupConLoss, TimmBackbone, two_way_dcl_loss
-from sktr.photo_sketch_dataset import build_loader, get_samples_from_directories
-from sktr.type_defs import ImageTransformFunction, Sample
-from tqdm import tqdm
 import timm
+import torch
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
+from tqdm import tqdm
 
+from sktr.config.config import CFG, DEVICE
+from sktr.model import SKTR, SupConLoss, TimmBackbone
+from sktr.photo_sketch_dataset import build_loader, get_samples_from_directories
+from sktr.type_defs import ImageTransformFunction, Sample
 from sktr.vector import EvaluationStore
-
 
 torch.backends.cudnn.benchmark = True
 torch.backends.cuda.matmul.allow_tf32 = True
@@ -69,7 +67,9 @@ def _create_class_mask(labels: list[str]) -> torch.Tensor:
 
 @torch.no_grad()
 def evaluate(
-    val_loader: DataLoader[Sample], model: SKTR, global_step: int = 0
+    val_loader: DataLoader[Sample],
+    model: SKTR,
+    global_step: int = 0,
 ) -> EvaluationMetrics:
     total_loss = 0.0
     count = 0
@@ -94,7 +94,7 @@ def evaluate(
             mask = _create_class_mask(batch["categories"]).to(DEVICE)
             loss = sup_con_loss(
                 pairviews(
-                    torch.cat([photo_embeddings, sketch_embeddings], dim=0).to(DEVICE)
+                    torch.cat([photo_embeddings, sketch_embeddings], dim=0).to(DEVICE),
                 ),
                 mask=mask,
             )
@@ -130,8 +130,7 @@ def evaluate(
     )
 
 
-def train():
-    print(f"Training on {DEVICE=}")
+def train() -> None:  # noqa: PLR0915
     encoder = TimmBackbone(
         name=CFG.skitter.encoder_name,
     )
@@ -185,7 +184,10 @@ def train():
 
     if CFG.training.optimizer == "adamw":
         optimizer = torch.optim.AdamW(
-            model.parameters(), lr=CFG.training.base_lr, weight_decay=0.05, fused=True
+            model.parameters(),
+            lr=CFG.training.base_lr,
+            weight_decay=0.05,
+            fused=True,
         )
     else:
         optimizer = torch.optim.Adam(model.parameters(), lr=CFG.training.base_lr)
@@ -193,14 +195,19 @@ def train():
     total_steps = steps_per_epoch * CFG.training.epochs
     warmup_steps = int(0.05 * total_steps)
     lr_scheduler = build_warmup_cosine_scheduler(
-        optimizer, total_steps=total_steps, warmup_steps=warmup_steps, min_lr_ratio=0.1
+        optimizer,
+        total_steps=total_steps,
+        warmup_steps=warmup_steps,
+        min_lr_ratio=0.1,
     )
     run_name = time.strftime("%Y%m%d-%H%M%S")
     writer = SummaryWriter(log_dir=f"runs/{run_name}")
     scaler = torch.amp.GradScaler("cuda", enabled=True)
     for epoch in range(epochs := CFG.training.epochs):
         progress_bar = tqdm(
-            train_loader, desc=f"Epoch {epoch + 1}/{epochs}", miniters=50
+            train_loader,
+            desc=f"Epoch {epoch + 1}/{epochs}",
+            miniters=50,
         )
         for batch_index, batch in enumerate(progress_bar):
             global_step_number = epoch * len(train_loader) + batch_index
@@ -220,7 +227,9 @@ def train():
             if (global_step_number + 1) % 50 == 0:
                 writer.add_scalar("train/loss", loss.item(), global_step_number)
                 writer.add_scalar(
-                    "train/lr", lr_scheduler.get_last_lr()[0], global_step_number
+                    "train/lr",
+                    lr_scheduler.get_last_lr()[0],
+                    global_step_number,
                 )
             scale_before = scaler.get_scale()
             scaler.scale(loss).backward()
@@ -238,7 +247,9 @@ def train():
                 global_step_number + 1
             ) % CFG.validation.eval_every_steps == 0 or is_last_step:
                 eval_metrics = evaluate(
-                    val_loader, model, global_step=global_step_number
+                    val_loader,
+                    model,
+                    global_step=global_step_number,
                 )
                 writer.add_scalar("eval/loss", eval_metrics.loss, global_step_number)
                 writer.add_scalar(
@@ -249,11 +260,10 @@ def train():
                 tqdm.write(
                     f"Eval at epoch {epoch + 1}, step {global_step_number + 1}: "
                     f"loss={eval_metrics.loss:.4f}, "
-                    f"mAP@10={eval_metrics.mean_average_precision_at_10:.4f}, "
+                    f"mAP@10={eval_metrics.mean_average_precision_at_10:.4f}, ",
                 )
         model_save_path = (
             Path(CFG.training.model_save_path) / f"sktr_model_epoch_{epoch + 1}.pth"
         )
         model_save_path.parent.mkdir(parents=True, exist_ok=True)
         torch.save(model.state_dict(), model_save_path)
-        print(f"Model saved to {model_save_path}")

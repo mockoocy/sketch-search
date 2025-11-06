@@ -1,8 +1,8 @@
-import numpy as np
-from pymilvus import DataType, MilvusClient
 from pathlib import Path
 
+import numpy as np
 import torch
+from pymilvus import DataType, MilvusClient
 
 from sktr.type_defs import EmbeddingBatch, StoredImage
 
@@ -45,7 +45,9 @@ class EvaluationStore:
             primary_field="path",
         )
         schema.add_field(
-            "vector", datatype=DataType.FLOAT_VECTOR, dim=self.embedding_size
+            "vector",
+            datatype=DataType.FLOAT_VECTOR,
+            dim=self.embedding_size,
         )
         schema.add_field("category", datatype=DataType.VARCHAR, max_length=128)
         schema.add_field("path", datatype=DataType.VARCHAR, max_length=1024)
@@ -85,7 +87,9 @@ class EvaluationStore:
         Returns:
             A list of lists containing the float32 values of the embeddings
         """
-        assert embeddings.ndim == 2, "embeddings must be [B, D]"
+        if embeddings.ndim != 2:
+            err_msg = "Embeddings must be a 2D tensor"
+            raise ValueError(err_msg)
         if embeddings.device.type != "cpu":
             embeddings = embeddings.cpu()
         return embeddings.detach().to(torch.float32).contiguous().tolist()
@@ -111,7 +115,7 @@ class EvaluationStore:
                 "vector": record,
                 "category": category,
             }
-            for record, path, category in zip(records, paths, categories)
+            for record, path, category in zip(records, paths, categories, strict=False)
         ]
 
         self.client.upsert(collection_name=LOCAL_EMBEDDINGS_COLLECTION, data=data)
@@ -130,7 +134,8 @@ class EvaluationStore:
             top_k: the number of top similar embeddings to retrieve
 
         Returns:
-            A list of lists containing the IDs of the top_k most similar embeddings for each query embedding
+            A list of lists containing the IDs of the top_k most similar
+                embeddings for each query embedding
         """
         embeddings_normalized = torch.nn.functional.normalize(query_embeddings, dim=1)
         query_list = self._as_cpu_f32(embeddings_normalized)
@@ -144,7 +149,10 @@ class EvaluationStore:
         )
 
     def mean_average_precision_at_k(
-        self, top_k: int, query_embeddings: EmbeddingBatch, query_categories: list[str]
+        self,
+        top_k: int,
+        query_embeddings: EmbeddingBatch,
+        query_categories: list[str],
     ) -> float:
         """Computes the mAP@K metric
 
@@ -157,10 +165,12 @@ class EvaluationStore:
         to the total number of images retrieved (num_relevant / K).
 
         For example, mAP@5 for two query vectors could be calculated as follows:
-        - For the first query vector, assume the top 5 retrieved images are [A, B, C, D, E]
+        - For the first query vector, assume the top 5
+            retrieved images are [A, B, C, D, E]
             and the relevant images are [A, C, D, X].
             Then, AP(Q1)@5 = (AP@1 + AP@3 + AP@4) / 4 = (1/1 + 2/3 + 3/4) / 4
-        - For the second query vector, assume the top 5 retrieved images are [F, G, H, I, J]
+        - For the second query vector, assume the top 5
+            retrieved images are [F, G, H, I, J]
             and the relevant images are [F, H].
             Then, AP(Q2)@5 = (1/1 + 2/3) / 2
         - Finally, mAP@5 = (AP(Q1)@5 + AP(Q2)@5) / 2
@@ -189,13 +199,16 @@ class EvaluationStore:
             dtype=object,
         )  # [len(search_results), result_count]
         query_category_vector = np.array(query_categories, dtype=object).reshape(
-            len(search_results), 1
+            len(search_results),
+            1,
         )  # [len(search_results), 1]
         relevant_matrix = (
             category_matrix == query_category_vector
         )  # [len(search_results), result_count]
         ranks_matrix = np.arange(
-            1, result_count + 1, dtype=np.float32
+            1,
+            result_count + 1,
+            dtype=np.float32,
         )  # [result_count]
 
         precision_matrix = (
@@ -203,7 +216,7 @@ class EvaluationStore:
         )
 
         category_counts_vector = np.array(
-            [self._cat_counts.get(cat, 0) for cat in query_categories]
+            [self._cat_counts.get(cat, 0) for cat in query_categories],
         )
 
         average_precision_vector = (

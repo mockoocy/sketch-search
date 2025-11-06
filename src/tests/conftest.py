@@ -99,8 +99,8 @@ def pytest_addoption(parser: pytest.Parser) -> None:
     )
 
 
-@pytest.fixture(scope="session")
-def dataloader(request: pytest.FixtureRequest) -> DataLoader[Sample]:
+@pytest.fixture
+def dataloader() -> DataLoader[Sample]:
     sample_paths, _, _ = get_samples_from_directories(
         images_root=IMG_DIR / "photos",
         sketches_root=IMG_DIR / "sketches",
@@ -120,7 +120,7 @@ def dataloader(request: pytest.FixtureRequest) -> DataLoader[Sample]:
     )
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture
 def eval_store(tmp_path: PosixPath) -> EvaluationStore:
     db_path = tmp_path / "milvus_lite.db"
     return EvaluationStore(embedding_size=2, store_path=db_path)

@@ -1,4 +1,5 @@
 import torch
+
 from sktr.processing import (
     binarize_by_percentile,
     binary_thinning,

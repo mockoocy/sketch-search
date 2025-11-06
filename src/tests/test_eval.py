@@ -1,4 +1,5 @@
 import torch
+
 from sktr.vector import EvaluationStore
 
 
@@ -35,7 +36,7 @@ def test_calculate_map_score(eval_store: EvaluationStore) -> None:
             [0.95, 0.05],  # close to A,
             [0.10, 0.90],  # close to B,
             [0.45, 0.55],  # somewhat in between
-        ]
+        ],
     )
 
     map_score = eval_store.mean_average_precision_at_k(
@@ -43,7 +44,6 @@ def test_calculate_map_score(eval_store: EvaluationStore) -> None:
         query_embeddings=query_batch,
         query_categories=["A", "B", "A"],
     )
-    # TODO: Calculate the mAP by hand and compare.
 
     # For the first query, we expect to retrieve three
     # embeddings for category A.

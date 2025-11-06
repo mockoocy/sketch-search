@@ -1,8 +1,7 @@
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, TypedDict
-
-from collections.abc import Callable
 
 import numpy as np
 import torch
@@ -19,7 +18,7 @@ type RGBTorch = Float[torch.Tensor, "3 Height Width"]  # noqa: F722
 type RGBTorchBatch = Float[torch.Tensor, "Batch 3 Height Width"]  # noqa: F722
 type SourceMaskBatch = Int[torch.Tensor, "Batch SourceMask"]  # noqa: F722
 
-type Embedding = Float[torch.Tensor, "EmbeddingDimension"]  # noqa: F722
+type Embedding = Float[torch.Tensor, "EmbeddingDimension"]  # noqa: F821
 type EmbeddingBatch = Float[torch.Tensor, "Batch EmbeddingDimension"]  # noqa: F722
 
 type Loss = Float[torch.Tensor, "0"]

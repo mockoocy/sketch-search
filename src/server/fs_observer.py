@@ -1,12 +1,12 @@
-from enum import Enum, StrEnum
+import logging
+from enum import StrEnum
 from pathlib import Path
 from typing import Self
-from watchdog.events import FileSystemEvent, PatternMatchingEventHandler
+
 from blinker import Signal
+from watchdog.events import FileSystemEvent, PatternMatchingEventHandler
 from watchdog.observers import Observer
 from watchdog.observers.api import BaseObserver
-import logging
-
 
 IMG_PATTERNS = ["*.png", "*.jpg", "*.jpeg", "*.gif", "*.bmp", "*.tiff", "*.webp"]
 
@@ -20,7 +20,7 @@ class ImageFsEvent(StrEnum):
     def __new__(cls, value: str) -> Self:
         obj = str.__new__(cls, value)
         obj._value_ = value
-        obj._signal = Signal(value)
+        obj._signal = Signal(value)  # noqa: SLF001
         return obj
 
     @property
@@ -29,7 +29,7 @@ class ImageFsEvent(StrEnum):
 
 
 class ImageWatcherHandler(PatternMatchingEventHandler):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(
             patterns=IMG_PATTERNS,
             ignore_patterns=None,
@@ -37,16 +37,16 @@ class ImageWatcherHandler(PatternMatchingEventHandler):
             case_sensitive=False,
         )
 
-    def on_created(self, event: FileSystemEvent):
+    def on_created(self, event: FileSystemEvent) -> None:
         ImageFsEvent.CREATED.signal.send(event)
 
-    def on_deleted(self, event: FileSystemEvent):
+    def on_deleted(self, event: FileSystemEvent) -> None:
         ImageFsEvent.DELETED.signal.send(event)
 
-    def on_moved(self, event: FileSystemEvent):
+    def on_moved(self, event: FileSystemEvent) -> None:
         ImageFsEvent.MOVED.signal.send(event)
 
-    def on_modified(self, event: FileSystemEvent):
+    def on_modified(self, event: FileSystemEvent) -> None:
         ImageFsEvent.CHANGED.signal.send(event)
 
 
@@ -56,7 +56,7 @@ def start_observer() -> BaseObserver:
     observer = Observer()
     observer.schedule(ImageWatcherHandler(), path=".", recursive=False)
     observer.start()
-    watch_path = Path(".").resolve()
+    watch_path = Path().cwd()
     logging.getLogger("uvicorn.error").info(f"Started observer on path: {watch_path}")
     return observer
 
