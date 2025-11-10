@@ -3,7 +3,7 @@ from collections import defaultdict
 from pathlib import Path
 
 import torch
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader, Dataset, Sampler
 from torchvision import io
 
 from sktr.type_defs import (
@@ -90,8 +90,58 @@ def _worker_init(_: int) -> None:
     torch.set_num_threads(1)
 
 
+class ClassBalancedBatchSampler(Sampler[list[int]]):
+    def __init__(
+        self,
+        samples: list[SamplePath],
+        classes_per_batch: int,
+        samples_per_class: int,
+        *,
+        drop_last: bool = True,
+        seed: int = 42,
+    ) -> None:
+        self.by_cls: dict[str, list[int]] = defaultdict(list)
+        for i, s in enumerate(samples):
+            self.by_cls[s.category].append(i)
+        self.classes = list(self.by_cls.keys())
+        self.cpb = classes_per_batch
+        self.spc = samples_per_class
+        self.bs = self.cpb * self.spc
+        self.drop_last = drop_last
+        self.rng = random.Random(seed)
+        for v in self.by_cls.values():
+            self.rng.shuffle(v)
+        total = sum(len(v) for v in self.by_cls.values())
+        self.n = total // self.bs if drop_last else np.ceil(total / self.bs)
+        self.ptr = {c: 0 for c in self.classes}
+
+    def __iter__(self):
+        for _ in range(self.n):
+            if len(self.classes) >= self.cpb:
+                chosen = self.rng.sample(self.classes, self.cpb)
+            else:
+                chosen = [self.classes[i % len(self.classes)] for i in range(self.cpb)]
+            batch: list[int] = []
+            for c in chosen:
+                arr = self.by_cls[c]
+                start = self.ptr[c]
+                end = start + self.spc
+                if end > len(arr):
+                    need = end - len(arr)
+                    arr = arr + self.rng.choices(arr, k=need)
+                    self.by_cls[c] = arr
+                batch.extend(arr[start:end])
+                self.ptr[c] = end
+            self.rng.shuffle(batch)
+            yield batch
+
+    def __len__(self) -> int:
+        return self.n
+
+
 def build_loader(  # noqa: PLR0913
     samples: list[SamplePath],
+    use_class_balanced_sampler: bool = True,
     batch_size: int = 32,
     num_workers: int = 0,
     photo_transform: ImageTransformFunction | None = None,
@@ -112,13 +162,24 @@ def build_loader(  # noqa: PLR0913
         photo_transform=photo_transform,
         sketch_transform=sketch_transform,
     )
+
+    class_count = len({s.category for s in samples})
+    print(f"Number of classes: {class_count}")
     return DataLoader(
         dataset,
-        batch_size=batch_size,
-        shuffle=shuffle,
+        batch_size=batch_size if not use_class_balanced_sampler else 1,
+        batch_sampler=ClassBalancedBatchSampler(
+            samples,
+            classes_per_batch=max(1, batch_size // 4),
+            samples_per_class=4,
+            drop_last=drop_last,
+        )
+        if use_class_balanced_sampler
+        else None,
+        shuffle=shuffle if not use_class_balanced_sampler else False,
         num_workers=num_workers,
         pin_memory=True,
-        drop_last=drop_last,
+        drop_last=drop_last if not use_class_balanced_sampler else False,
         collate_fn=_collate_fn,
         persistent_workers=persistent_workers,
         prefetch_factor=prefetch_factor,

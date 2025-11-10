@@ -1,20 +1,19 @@
 # Training settings
 training:
-  epochs: 1
-  base_lr: 0.01
-  batch_size: 128
+  epochs: 2
+  base_lr: 0.0005
+  batch_size: 64
   optimizer: adam
-  fraction_of_samples: 0.25
+  fraction_of_samples: 1
   sketches_path: "data/sketches/"
   images_path: "data/images/"
-  dcl_temperature: 0.7
 
 # Model settings
 skitter:
-  projection_head_size: 256
+  projection_head_size: 2048
   embedding_size: 512
   encoder_name: "convnext_tiny.in12k_ft_in1k"
 
 validation:
-  eval_every_steps: 200
-  validation_fraction: 0.1
+  eval_every_steps: 500
+  validation_fraction: 0.075

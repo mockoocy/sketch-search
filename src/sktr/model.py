@@ -1,5 +1,6 @@
 from typing import Literal, Protocol
 
+
 import timm
 import torch
 from torch import nn
@@ -11,6 +12,10 @@ from sktr.type_defs import (
     Loss,
     RGBTorchBatch,
 )
+import torchvision.transforms.v2 as T
+
+IMAGENET_MEAN = [0.485, 0.456, 0.406]
+IMAGENET_STD = [0.229, 0.224, 0.225]
 
 
 class TimmCovolutionalModel(Protocol):
@@ -188,30 +193,6 @@ def two_way_dcl_loss(
     ) / 2
 
 
-def _mlp(in_dim: int, hidden: int, out_dim: int, hidden_layers: int) -> nn.Sequential:
-    """Small helper function to create a multi-layer perceptron.
-    It creates an MLP with a specified number of hidden layers,
-    each of the same dimension.
-    It uses BatchNorm1d and ReLU activation after each layer except the last one.
-
-    Args:
-        in_dim: input dimension
-        hidden: hidden layer dimension
-        out_dim: output dimension
-        layers: number of layers in the MLP
-
-    Returns:
-        _description_
-    """
-    dims = [in_dim] + [hidden] * hidden_layers + [out_dim]
-    mods: list[nn.Module] = []
-    for i in range(len(dims) - 1):
-        mods.append(nn.Linear(dims[i], dims[i + 1], bias=False))
-        if i < len(dims) - 2:
-            mods += [nn.BatchNorm1d(dims[i + 1]), nn.ReLU(inplace=True)]
-    return nn.Sequential(*mods)
-
-
 class SupConLoss(nn.Module):
     """Supervised Contrastive Learning: https://arxiv.org/pdf/2004.11362.pdf.
     It also supports the unsupervised contrastive loss in SimCLR"""
@@ -321,14 +302,16 @@ class SKTR(nn.Module):
 
         self.encoder = encoder
         self.encoder.eval()
+        encoder.requires_grad_(False)
 
         for param in self.encoder.parameters():
             param.requires_grad = False
-        self.projection_head = _mlp(
-            in_dim=encoder.feature_dim,
-            hidden=hidden_layer_size,
-            out_dim=embedding_size,
-            hidden_layers=2,
+        self.projection_head = nn.Sequential(
+            nn.Linear(self.encoder.feature_dim, hidden_layer_size, bias=False),
+            nn.ReLU(),
+            nn.Linear(hidden_layer_size, hidden_layer_size, bias=False),
+            nn.ReLU(),
+            nn.Linear(hidden_layer_size, embedding_size, bias=False),
         )
 
     def forward(
@@ -386,3 +369,51 @@ class SKTR(nn.Module):
         """
         sketch_features = self.encoder(sketch)
         return self.projection_head(sketch_features)
+
+
+def build_photo_transform_train(size=224):
+    return T.Compose(
+        [
+            T.ToDtype(torch.float32, scale=True),
+            T.RandomResizedCrop(size, scale=(0.2, 1.0)),
+            T.RandomHorizontalFlip(p=0.5),
+            T.ColorJitter(0.4, 0.4, 0.4, 0.1),
+            T.RandomGrayscale(p=0.2),
+            T.GaussianBlur(kernel_size=9, sigma=(0.1, 2.0)),
+            T.Normalize(IMAGENET_MEAN, IMAGENET_STD),
+        ]
+    )
+
+
+def build_sketch_transform_train(size=224):
+    return T.Compose(
+        [
+            T.ToDtype(torch.float32, scale=True),
+            T.RandomResizedCrop(size, scale=(0.5, 1.0)),
+            T.RandomHorizontalFlip(p=0.5),
+            T.GaussianBlur(kernel_size=5, sigma=(0.1, 1.0)),
+            T.Normalize([0.5], [0.5]),
+        ]
+    )
+
+
+def build_photo_transform_eval(size=224):
+    return T.Compose(
+        [
+            T.ToDtype(torch.float32, scale=True),
+            T.Resize(size, interpolation=T.InterpolationMode.BICUBIC),
+            T.CenterCrop(size),
+            T.Normalize(IMAGENET_MEAN, IMAGENET_STD),
+        ]
+    )
+
+
+def build_sketch_transform_eval(size=224):
+    return T.Compose(
+        [
+            T.ToDtype(torch.float32, scale=True),
+            T.Resize(size, interpolation=T.InterpolationMode.BICUBIC),
+            T.CenterCrop(size),
+            T.Normalize([0.5], [0.5]),
+        ]
+    )

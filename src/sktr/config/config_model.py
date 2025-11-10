@@ -10,7 +10,7 @@ class TrainingSettings(BaseModel):
     optimizer: Literal["adam", "adamw"] = "adam"
     sketches_path: str = "./data/sketches/"
     images_path: str = "./data/images/"
-    dcl_temperature: float = Field(default=0.2, gt=0.0, le=1.0)
+    ure: float = Field(default=0.2, gt=0.0, le=1.0)
     fraction_of_samples: float = Field(default=1.0, gt=0.0, le=1.0)
     test_fraction: float = Field(default=0.0, ge=0.0, le=1.0)
     model_save_path: str = "./models/"

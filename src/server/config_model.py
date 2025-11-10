@@ -38,14 +38,16 @@ class NoAuthConfig(BaseModel):
     kind: Literal["none"] = Field(default="none")
 
 
+type AuthConfig = OTPAuthConfig | NoAuthConfig
+
+
 class ServerConfig(BaseModel):
     host: str = Field(default="127.0.0.1")
-    # Taking up reserved ports is unbelieveably cringe
     port: int = Field(default=8000, ge=1024, le=65535)
     watched_directory: str = Field(default="./")
     watch_recursive: bool = Field(default=True)
     log_level: LogLevel = Field(default="info")
-    auth: OTPAuthConfig | NoAuthConfig = Field(default_factory=lambda: NoAuthConfig())
+    auth: AuthConfig = Field(default_factory=lambda: NoAuthConfig())
 
     # pydantic config - makes it immutable
     model_config = ConfigDict(frozen=True)

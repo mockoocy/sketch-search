@@ -47,19 +47,13 @@ async def fs_events(request: Request) -> AsyncGenerator[str, None]:
     for event in ImageFsEvent:
         event.signal.connect(_handler)
 
-    try:
-        while not await request.is_disconnected():
-            try:
-                event = await asyncio.wait_for(queue.get(), timeout=2.5)
-            except TimeoutError:
-                # This is here to avoid hanging connections
-                continue
-            yield str(event)
-    except TimeoutError:
-        logging.getLogger("uvicorn.error").info("Client disconnected from /events")
-    finally:
-        for event in ImageFsEvent:
-            event.signal.disconnect(_handler)
+    while True:
+        try:
+            event = await asyncio.wait_for(queue.get(), timeout=2.5)
+        except TimeoutError:
+            # This is here to avoid hanging connections
+            continue
+        yield str(event)
 
 
 @APP.get("/events")

@@ -218,8 +218,11 @@ class EvaluationStore:
         category_counts_vector = np.array(
             [self._cat_counts.get(cat, 0) for cat in query_categories],
         )
-
+        similar_vector_count = np.minimum(
+            category_counts_vector,
+            top_k,
+        ).astype(np.float32)
         average_precision_vector = (
-            np.sum(relevant_matrix * precision_matrix, axis=1) / category_counts_vector
+            np.sum(relevant_matrix * precision_matrix, axis=1) / similar_vector_count
         )
         return average_precision_vector.mean()
