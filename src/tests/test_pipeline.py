@@ -3,7 +3,7 @@ import torch
 import torch.nn.functional as fun
 from torch.utils.data import DataLoader
 
-from sktr.model import SKTR, TimmBackbone, dcl_loss
+from sktr.model import Embedder, TimmBackbone, dcl_loss
 from sktr.type_defs import Batch, Sample
 
 
@@ -74,7 +74,7 @@ def test_toy_dcl_loss() -> None:
 
 def test_gradients_exist_on_head(dataloader: DataLoader[Sample]) -> None:
     encoder = TimmBackbone(name="resnet18", pretrained=False)
-    model = SKTR(encoder=encoder, hidden_layer_size=128, embedding_size=32)
+    model = Embedder(backbone=encoder, hidden_layer_size=128, embedding_size=32)
     opt = torch.optim.SGD(model.parameters(), lr=1e-3)
 
     batch: Batch = next(iter(dataloader))
@@ -100,7 +100,7 @@ def test_cpu_forward_and_train_smoke(dataloader: DataLoader[Sample]) -> None:
 
     # not pretrained to avoid internet
     encoder = TimmBackbone(name="resnet18", pretrained=False)
-    model = SKTR(encoder=encoder, hidden_layer_size=256, embedding_size=64)
+    model = Embedder(backbone=encoder, hidden_layer_size=256, embedding_size=64)
 
     batch: Batch = next(iter(dataloader))
     photos = batch["photo"]  # [B,3,H,W]

@@ -1,0 +1,9 @@
+from typing import Protocol
+
+from server.auth.otp.models import OtpCode
+
+
+class OtpRepository(Protocol):
+    def find_otp_by_challenge_hash(self, challenge_token: str) -> OtpCode | None: ...
+    def create_otp(self, code: OtpCode) -> OtpCode: ...
+    def update_otp(self, code: OtpCode) -> OtpCode: ...

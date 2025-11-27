@@ -25,3 +25,6 @@ models/
 # a subject to change :D
 **/config.yaml
 **/server_config.yaml
+
+# dev db
+app.db

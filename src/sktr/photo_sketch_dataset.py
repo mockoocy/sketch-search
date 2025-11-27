@@ -1,7 +1,9 @@
 import random
 from collections import defaultdict
+from collections.abc import Generator
 from pathlib import Path
 
+import numpy as np
 import torch
 from torch.utils.data import DataLoader, Dataset, Sampler
 from torchvision import io
@@ -108,14 +110,14 @@ class ClassBalancedBatchSampler(Sampler[list[int]]):
         self.spc = samples_per_class
         self.bs = self.cpb * self.spc
         self.drop_last = drop_last
-        self.rng = random.Random(seed)
+        self.rng = random.Random(seed)  # noqa: S311 - not a cryptographic use
         for v in self.by_cls.values():
             self.rng.shuffle(v)
         total = sum(len(v) for v in self.by_cls.values())
         self.n = total // self.bs if drop_last else np.ceil(total / self.bs)
-        self.ptr = {c: 0 for c in self.classes}
+        self.ptr = dict.fromkeys(self.classes, 0)
 
-    def __iter__(self):
+    def __iter__(self) -> Generator[list[int]]:
         for _ in range(self.n):
             if len(self.classes) >= self.cpb:
                 chosen = self.rng.sample(self.classes, self.cpb)
@@ -141,13 +143,13 @@ class ClassBalancedBatchSampler(Sampler[list[int]]):
 
 def build_loader(  # noqa: PLR0913
     samples: list[SamplePath],
+    *,
     use_class_balanced_sampler: bool = True,
     batch_size: int = 32,
     num_workers: int = 0,
     photo_transform: ImageTransformFunction | None = None,
     sketch_transform: ImageTransformFunction | None = None,
     prefetch_factor: int = 4,
-    *,
     shuffle: bool = True,
     sketch_as_rgb: bool = False,
     drop_last: bool = True,
@@ -163,8 +165,6 @@ def build_loader(  # noqa: PLR0913
         sketch_transform=sketch_transform,
     )
 
-    class_count = len({s.category for s in samples})
-    print(f"Number of classes: {class_count}")
     return DataLoader(
         dataset,
         batch_size=batch_size if not use_class_balanced_sampler else 1,
@@ -237,7 +237,7 @@ def get_samples_from_directories(  # noqa: PLR0913
             for file in sketch_category.glob("*")
             if file.suffix[1:].lower() in IMG_EXTENSIONS
         ]
-        number_of_samples = int(per_category_fraction * len(sketch_files))
+        number_of_samples = max(4, int(per_category_fraction * len(sketch_files)))
         for sketch_path, image_path in zip(
             sketch_files,
             random.choices(image_files, k=number_of_samples),  # noqa: S311 - not a cryptographic use

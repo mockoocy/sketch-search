@@ -1,8 +1,8 @@
 from typing import Literal, Protocol
 
-
 import timm
 import torch
+import torchvision.transforms.v2 as T  # noqa: N812 - that's a convention
 from torch import nn
 
 from sktr.config.config import DEVICE
@@ -12,19 +12,18 @@ from sktr.type_defs import (
     Loss,
     RGBTorchBatch,
 )
-import torchvision.transforms.v2 as T
 
 IMAGENET_MEAN = [0.485, 0.456, 0.406]
 IMAGENET_STD = [0.229, 0.224, 0.225]
 
 
-class TimmCovolutionalModel(Protocol):
+class Backbone(Protocol):
     def forward_features(self, x: torch.Tensor) -> torch.Tensor: ...
 
     def forward(self, x: torch.Tensor) -> torch.Tensor: ...
 
 
-class TimmBackbone(nn.Module):
+class TimmBackbone(nn.Module, Backbone):
     """
     Wrapper around a timm model that outputs a *global* feature vector.
 
@@ -201,7 +200,7 @@ class SupConLoss(nn.Module):
         self,
         temperature: float = 0.1,
         contrast_mode: Literal["all", "one"] = "all",
-        base_temperature: float = 0.1,
+        base_temperature: float = 0.07,
     ) -> None:
         super().__init__()
         self.temperature = temperature
@@ -291,23 +290,21 @@ class SupConLoss(nn.Module):
         return loss.view(anchor_count, batch_size).mean()
 
 
-class SKTR(nn.Module):
+class Embedder(nn.Module):
     def __init__(
         self,
-        encoder: TimmBackbone,
+        backbone: TimmBackbone,
         hidden_layer_size: int = 2048,
         embedding_size: int = 512,
     ) -> None:
         super().__init__()
 
-        self.encoder = encoder
-        self.encoder.eval()
-        encoder.requires_grad_(False)
-
-        for param in self.encoder.parameters():
+        self.backbone = backbone
+        for param in self.backbone.parameters():
             param.requires_grad = False
+
         self.projection_head = nn.Sequential(
-            nn.Linear(self.encoder.feature_dim, hidden_layer_size, bias=False),
+            nn.Linear(self.backbone.feature_dim, hidden_layer_size, bias=False),
             nn.ReLU(),
             nn.Linear(hidden_layer_size, hidden_layer_size, bias=False),
             nn.ReLU(),
@@ -335,14 +332,17 @@ class SKTR(nn.Module):
             ],
             dim=0,
         )
-        photo_sketch_features = self.encoder(photo_sketch_batch)
+        photo_sketch_features = self.backbone(photo_sketch_batch)
         photo_sketch_embeddings = self.projection_head(photo_sketch_features)
         photo_embeddings, sketch_embeddings = torch.split(
             photo_sketch_embeddings,
             [photo.size(0), sketch.size(0)],
             dim=0,
         )
-        return photo_embeddings, sketch_embeddings
+        return nn.functional.normalize(
+            photo_embeddings,
+            dim=1,
+        ), nn.functional.normalize(sketch_embeddings, dim=1)
 
     def embed_photo(self, photo: RGBTorchBatch) -> EmbeddingBatch:
         """
@@ -354,8 +354,8 @@ class SKTR(nn.Module):
         Returns:
             Embeddings for the photos.
         """
-        photo_features = self.encoder(photo)
-        return self.projection_head(photo_features)
+        photo_features = self.backbone(photo)
+        return nn.functional.normalize(self.projection_head(photo_features), dim=1)
 
     def embed_sketch(self, sketch: GrayTorchBatch) -> EmbeddingBatch:
         """
@@ -367,53 +367,51 @@ class SKTR(nn.Module):
         Returns:
             Embeddings for the sketches.
         """
-        sketch_features = self.encoder(sketch)
-        return self.projection_head(sketch_features)
+        sketch_features = self.backbone(sketch)
+        return nn.functional.normalize(self.projection_head(sketch_features), dim=1)
 
 
-def build_photo_transform_train(size=224):
+def build_photo_transform_train(size: int = 224) -> T.Compose:
     return T.Compose(
         [
-            T.ToDtype(torch.float32, scale=True),
-            T.RandomResizedCrop(size, scale=(0.2, 1.0)),
+            T.RandomResizedCrop(size, scale=(0.5, 1.0)),
             T.RandomHorizontalFlip(p=0.5),
             T.ColorJitter(0.4, 0.4, 0.4, 0.1),
             T.RandomGrayscale(p=0.2),
-            T.GaussianBlur(kernel_size=9, sigma=(0.1, 2.0)),
+            T.RandomRotation(degrees=15),
+            T.GaussianBlur(kernel_size=5, sigma=(0.1, 2.0)),
             T.Normalize(IMAGENET_MEAN, IMAGENET_STD),
-        ]
+        ],
     )
 
 
-def build_sketch_transform_train(size=224):
+def build_sketch_transform_train(size: int = 224) -> T.Compose:
     return T.Compose(
         [
-            T.ToDtype(torch.float32, scale=True),
             T.RandomResizedCrop(size, scale=(0.5, 1.0)),
             T.RandomHorizontalFlip(p=0.5),
+            T.RandomRotation(degrees=15),
             T.GaussianBlur(kernel_size=5, sigma=(0.1, 1.0)),
             T.Normalize([0.5], [0.5]),
-        ]
+        ],
     )
 
 
-def build_photo_transform_eval(size=224):
+def build_photo_transform_eval(size: int = 224) -> T.Compose:
     return T.Compose(
         [
-            T.ToDtype(torch.float32, scale=True),
             T.Resize(size, interpolation=T.InterpolationMode.BICUBIC),
             T.CenterCrop(size),
             T.Normalize(IMAGENET_MEAN, IMAGENET_STD),
-        ]
+        ],
     )
 
 
-def build_sketch_transform_eval(size=224):
+def build_sketch_transform_eval(size: int = 224) -> T.Compose:
     return T.Compose(
         [
-            T.ToDtype(torch.float32, scale=True),
             T.Resize(size, interpolation=T.InterpolationMode.BICUBIC),
             T.CenterCrop(size),
             T.Normalize([0.5], [0.5]),
-        ]
+        ],
     )

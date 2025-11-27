@@ -1,10 +1,10 @@
 # Training settings
 training:
-  epochs: 2
+  epochs: 50
   base_lr: 0.0005
   batch_size: 64
-  optimizer: adam
-  fraction_of_samples: 1
+  optimizer: adamw
+  fraction_of_samples: 0.5
   sketches_path: "data/sketches/"
   images_path: "data/images/"
 
@@ -15,5 +15,5 @@ skitter:
   encoder_name: "convnext_tiny.in12k_ft_in1k"
 
 validation:
-  eval_every_steps: 500
-  validation_fraction: 0.075
+  eval_every_steps: 1000
+  validation_fraction: 0.2

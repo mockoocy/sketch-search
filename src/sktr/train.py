@@ -1,18 +1,18 @@
+import gc
 import time
 from dataclasses import dataclass
 from pathlib import Path
-import gc
+
 import numpy as np
-import timm
 import torch
-import torch.nn as nn
+from torch import nn
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
 from sktr.config.config import CFG, DEVICE
 from sktr.model import (
-    SKTR,
+    Embedder,
     SupConLoss,
     TimmBackbone,
     build_photo_transform_eval,
@@ -21,7 +21,7 @@ from sktr.model import (
     build_sketch_transform_train,
 )
 from sktr.photo_sketch_dataset import build_loader, get_samples_from_directories
-from sktr.type_defs import ImageTransformFunction, Sample
+from sktr.type_defs import Sample
 
 torch.backends.cudnn.benchmark = True
 torch.backends.cuda.matmul.allow_tf32 = True
@@ -73,14 +73,14 @@ def _create_class_mask(labels: list[str]) -> torch.Tensor:
     return torch.from_numpy(class_mask)
 
 
-def train() -> None:  # noqa: PLR0915
+def train() -> None:
     encoder = TimmBackbone(
         name=CFG.skitter.encoder_name,
     )
     encoder.to(DEVICE)
     encoder.eval()
-    model = SKTR(
-        encoder=encoder,
+    model = Embedder(
+        backbone=encoder,
         hidden_layer_size=CFG.skitter.projection_head_size,
         embedding_size=CFG.skitter.embedding_size,
     )
@@ -189,19 +189,19 @@ def train() -> None:  # noqa: PLR0915
 
 
 @torch.no_grad()
-def evaluate(val_loader: DataLoader[Sample], model: SKTR) -> EvaluationMetrics:
+def evaluate(val_loader: DataLoader[Sample], model: Embedder) -> EvaluationMetrics:  # noqa: PLR0915
     sup_con_loss = SupConLoss()
     total_loss = 0.0
     count = 0
     n = len(val_loader.dataset)
-    P = None
-    S = None
-    yP = torch.empty(n, dtype=torch.uint8, device=DEVICE)
-    yS = torch.empty(n, dtype=torch.uint8, device=DEVICE)
+    photo_embeddings = None
+    sketch_embeddings = None
+    photo_category_ids = torch.empty(n, dtype=torch.uint8, device=DEVICE)
+    sketch_category_ids = torch.empty(n, dtype=torch.uint8, device=DEVICE)
     label_to_id = {}
     idx = 0
 
-    def to_ids(names):
+    def to_ids(names: list[str]) -> torch.Tensor:
         ids = []
         for s in names:
             if s not in label_to_id:
@@ -219,24 +219,24 @@ def evaluate(val_loader: DataLoader[Sample], model: SKTR) -> EvaluationMetrics:
         bsz = pe.size(0)
         total_loss += float(loss) * bsz
         count += bsz
-        if P is None:
+        if photo_embeddings is None:
             d = pe.size(1)
-            P = torch.empty(n, d, device=DEVICE, dtype=pe.dtype)
-            S = torch.empty(n, d, device=DEVICE, dtype=se.dtype)
-        P[idx : idx + bsz].copy_(pe)
-        S[idx : idx + bsz].copy_(se)
-        yP[idx : idx + bsz] = ids
-        yS[idx : idx + bsz] = ids
+            photo_embeddings = torch.empty(n, d, device=DEVICE, dtype=pe.dtype)
+            sketch_embeddings = torch.empty(n, d, device=DEVICE, dtype=se.dtype)
+        photo_embeddings[idx : idx + bsz].copy_(pe)
+        sketch_embeddings[idx : idx + bsz].copy_(se)
+        photo_category_ids[idx : idx + bsz] = ids
+        sketch_category_ids[idx : idx + bsz] = ids
         idx += bsz
 
     val_loss = total_loss / count if count > 0 else float("inf")
 
-    P = nn.functional.normalize(P, dim=1)
-    S = nn.functional.normalize(S, dim=1)
-    sims = S @ P.t()
+    photo_embeddings = nn.functional.normalize(photo_embeddings, dim=1)
+    sketch_embeddings = nn.functional.normalize(sketch_embeddings, dim=1)
+    sims = sketch_embeddings @ photo_embeddings.t()
     k = 10
     topk = torch.topk(sims, k=k, dim=1).indices
-    rel = yS.unsqueeze(1) == yP.unsqueeze(0)
+    rel = sketch_category_ids.unsqueeze(1) == photo_category_ids.unsqueeze(0)
     rel_at_k = torch.gather(rel, 1, topk)
     csum = torch.cumsum(rel_at_k.int(), dim=1)
     ranks = torch.arange(1, k + 1, device=DEVICE).unsqueeze(0)
@@ -247,7 +247,7 @@ def evaluate(val_loader: DataLoader[Sample], model: SKTR) -> EvaluationMetrics:
     map_at_10 = (ap_num / denom).mean().item()
 
     # It's criminal, but we have to do this to free GPU memory
-    del P, S, yP, yS
+    del photo_embeddings, sketch_embeddings, photo_category_ids, sketch_category_ids
     torch.cuda.synchronize()
     torch.cuda.empty_cache()
     gc.collect()

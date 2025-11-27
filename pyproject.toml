@@ -3,7 +3,7 @@ name = "sktr"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.13"
 classifiers = ["Private :: Do Not Upload"]
 dependencies = [
   "jaxtyping>=0.3.2",
@@ -17,7 +17,6 @@ dependencies = [
 [project.scripts]
 train = "sktr.train:train"
 server = "server:serve"
-
 
 
 [project.optional-dependencies]
