@@ -24,11 +24,12 @@ class SmtpConfig(BaseModel):
 
 
 class OtpAuthConfig(BaseModel):
-    kind: Literal["otp"] = Field(default="otp")
-    expires_in_s: int = Field(default=300)
-    # Number of allowed attempts before invalidating the OTP
-    max_attempts: int = Field(default=5)
     smtp: SmtpConfig
+    default_user_email: EmailStr
+    kind: Literal["otp"] = Field(default="otp")
+    # Number of allowed attempts before invalidating the OTP
+    expires_in_s: int = Field(default=300)
+    max_attempts: int = Field(default=5)
     db_path: Path = Field(default=Path("./app.db"))
 
 

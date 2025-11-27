@@ -24,7 +24,15 @@ from server.user.models import User
 from server.user.repository import UserRepository
 
 
-def _generate_otp_hash(secret_key: str, challenge_token: str) -> str:
+def _hash_otp_code(secret_key: str, challenge_token: str, otp: str) -> str:
+    return hmac.new(
+        secret_key.encode(),
+        (challenge_token + otp).encode(),
+        hashlib.sha256,
+    ).hexdigest()
+
+
+def _generate_otp(secret_key: str, challenge_token: str) -> tuple[str, str]:
     """
     Creates a secure hash for the OTP code, along the code itself.
 
@@ -38,16 +46,12 @@ def _generate_otp_hash(secret_key: str, challenge_token: str) -> str:
         challenge_token: The challenge token associated with the OTP.
 
     Returns:
-        The secure hash of the OTP code.
+        A tuple, otp code and it's hash.
     """
     otp_length = 8
     characters = string.digits + string.ascii_letters + string.punctuation
     otp = "".join(secrets.choice(characters) for _ in range(otp_length))
-    return hmac.new(
-        secret_key.encode(),
-        (challenge_token + otp).encode(),
-        hashlib.sha256,
-    ).hexdigest()
+    return otp, _hash_otp_code(secret_key, challenge_token, otp)
 
 
 def _hash_challenge_token(token: str) -> str:
@@ -79,14 +83,14 @@ class DefaultOtpAuthService:
             err_msg = "User not found"
             raise UserNotFoundError(err_msg)
         token, token_hash = _generate_challenge_token()
-        otp_hash = _generate_otp_hash(self._session_config.secret_key, token)
+        otp, otp_hash = _generate_otp(self._session_config.secret_key, token)
         otp_code = OtpCode(
             code_hash=otp_hash,
             user_id=user.id,
             challenge_token_hash=token_hash,
         )
         self._otp_repository.create_otp(otp_code)
-        self._send_otp_via_email(email, token)
+        self._send_otp_via_email(email, otp)
         return token
 
     def verify(self, code: str, challenge_token: str) -> User:
@@ -98,29 +102,34 @@ class DefaultOtpAuthService:
         if otp_code.consumed:
             err_msg = "OTP code already consumed"
             raise OtpConsumedError(err_msg)
-        if otp_code.expires_at < datetime.now(UTC):
+        if otp_code.expires_at.replace(tzinfo=UTC) < datetime.now(UTC):
+            # datetime from db is naive, so we set UTC timezone info
             err_msg = "OTP code expired"
             raise OtpExpiredError(err_msg)
-        if otp_code.code_hash != code:
+        if otp_code.code_hash != _hash_otp_code(
+            self._session_config.secret_key,
+            challenge_token,
+            code,
+        ):
             err_msg = "Invalid OTP code"
             raise OtpInvalidError(err_msg)
 
         otp_code.consumed = True
         self._otp_repository.update_otp(otp_code)
 
-        user = self._user_repository.get_user_by_email(otp_code.email)
+        user = self._user_repository.get_user_by_id(otp_code.user_id)
         if not user:
             err_msg = f"User with ID {otp_code.user_id} not found"
             raise UserNotFoundError(err_msg)
 
         return user
 
-    def _send_otp_via_email(self, email: EmailStr, token: str) -> None:
+    def _send_otp_via_email(self, email: EmailStr, otp: str) -> None:
         msg = EmailMessage()
         msg["Subject"] = "Your OTP Code"
         msg["From"] = self._smtp_config.from_address
         msg["To"] = email
-        msg.set_content(f"Your OTP code is: {token}")
+        msg.set_content(f"Your OTP code is: {otp}")
         context = ssl.create_default_context()
 
         with smtplib.SMTP(

@@ -39,7 +39,7 @@ class DefaultSessionService:
         """
         token, token_hash = _generate_session_token()
         session_token = SessionToken(token_hash=token_hash, user_id=user.id)
-        self.session_repository.save_token(session_token, user)
+        self.session_repository.save_token(session_token)
         return token
 
     def validate_token(self, token: str) -> User | None:
