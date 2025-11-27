@@ -8,7 +8,7 @@ from server.auth.otp.repository import OtpRepository
 from server.auth.otp.service import OtpAuthService
 from server.config.yaml_loader import ServerConfigDep
 from server.db_core import DbSessionDep
-from server.user import UserRepositoryDep
+from server.user.dependencies import UserRepositoryDep
 
 
 def _get_otp_repository(
