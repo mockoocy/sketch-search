@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
@@ -45,6 +45,32 @@ class SessionConfig(BaseModel):
     secret_key: str = Field(default="your-session-secret-key")
 
 
+class EmbedderConfigFile(BaseModel):
+    """
+    Used to allow specifying configuration via Python file
+
+    Python file shall be injected as an absolute path
+    to allow for injecting custom Embedders from anywhere
+    """
+
+    file: Path  # path to a python module
+    class_name: str
+    kwargs: dict[str, Any] | None = None
+
+
+class EmbedderConfigDotted(BaseModel):
+    target: str  # module.submodule.ClassName format
+    kwargs: dict[str, Any] | None = None
+
+
+type EmbedderConfig = EmbedderConfigFile | EmbedderConfigDotted
+
+
+class EmbedderRegistryConfig(BaseModel):
+    embedders: dict[str, EmbedderConfig] = Field(default_factory=dict)
+    chosen_embedder: str
+
+
 class ServerConfig(BaseModel):
     host: str = Field(default="127.0.0.1")
     # ge 1024, because occupying well-known ports is cringe
@@ -54,5 +80,16 @@ class ServerConfig(BaseModel):
     log_level: LogLevel = Field(default="info")
     auth: AuthConfig = Field(default_factory=lambda: NoAuthConfig())
     session: SessionConfig = Field(default_factory=lambda: SessionConfig())
+    embedder_registry: EmbedderRegistryConfig = Field(
+        default_factory=lambda: EmbedderRegistryConfig(
+            embedders={
+                "sktr": EmbedderConfigDotted(
+                    target="server.embedders.sktr.SktrEmbedder",
+                ),
+            },
+            chosen_embedder="sktr",
+        ),
+    )
+
     # pydantic config - makes it immutable
     model_config = ConfigDict(frozen=True)
