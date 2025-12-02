@@ -15,11 +15,15 @@ def _get_db_engine() -> Engine | None:
     config = get_server_config()
     if get_server_config().auth.kind == "none":
         return None
-    db_path = cast("OtpAuthConfig", config.auth).db_path
-    return create_engine(
-        f"sqlite:///{db_path}",
-        connect_args={"check_same_thread": False},
+    postgres_config = config.database
+    connect_string = (
+        f"postgresql+psycopg://{postgres_config.user}:"
+        f"{postgres_config.password}@"
+        f"{postgres_config.host}:"
+        f"{postgres_config.port}/"
+        f"{postgres_config.database}"
     )
+    return create_engine(connect_string)
 
 
 def init_db() -> None:

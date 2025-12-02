@@ -30,7 +30,6 @@ class OtpAuthConfig(BaseModel):
     # Number of allowed attempts before invalidating the OTP
     expires_in_s: int = Field(default=300)
     max_attempts: int = Field(default=5)
-    db_path: Path = Field(default=Path("./app.db"))
 
 
 class NoAuthConfig(BaseModel):
@@ -71,6 +70,14 @@ class EmbedderRegistryConfig(BaseModel):
     chosen_embedder: str
 
 
+class PostgresConfig(BaseModel):
+    host: str = Field(default="localhost")
+    port: int = Field(default=5432, ge=1, le=65535)
+    database: str
+    user: str
+    password: str
+
+
 class ServerConfig(BaseModel):
     host: str = Field(default="127.0.0.1")
     # ge 1024, because occupying well-known ports is cringe
@@ -90,6 +97,7 @@ class ServerConfig(BaseModel):
             chosen_embedder="sktr",
         ),
     )
+    database: PostgresConfig = Field(...)
 
     # pydantic config - makes it immutable
     model_config = ConfigDict(frozen=True)
