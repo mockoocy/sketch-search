@@ -2,7 +2,7 @@ import sys
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 
-from server.config.models import EmbedderConfigDotted, ServerConfig
+from server.config.models import EmbedderConfigDotted, EmbedderRegistryConfig
 from server.embedder_registry.embedder import Embedder
 
 
@@ -25,8 +25,8 @@ def _load_class_from_dotted_path(dotted_path: str) -> type:
 class EmbedderRegistry:
     """Registry for embedder instances."""
 
-    def __init__(self, server_config: ServerConfig) -> None:
-        self._config = server_config.embedder_registry
+    def __init__(self, config: EmbedderRegistryConfig) -> None:
+        self._config = config
         self._embedders: dict[str, Embedder] = self._populate_registry()
 
     @property

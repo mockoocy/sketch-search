@@ -13,6 +13,8 @@ class Embedder(Protocol):
     the embeddings.
     """
 
+    name: str
+
     def embed(self, images: list[bytes]) -> list[list[float]]:
         """
         Embed a batch of images.

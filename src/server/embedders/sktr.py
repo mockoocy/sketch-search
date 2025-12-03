@@ -7,6 +7,8 @@ WEIGHTS_PATH = "../sktr.pth"
 
 
 class SktrEmbedder:
+    name = "sktr"
+
     def __init__(
         self,
         embedding_size: int = 512,
