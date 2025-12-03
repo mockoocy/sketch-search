@@ -3,8 +3,8 @@ from typing import Annotated
 from fastapi import Depends
 
 from server.config.yaml_loader import ServerConfigDep
-from server.embedder_registry.embedder import Embedder
-from server.embedder_registry.registry import EmbedderRegistry
+from server.index.embedder import Embedder
+from server.index.embedder_registry.registry import EmbedderRegistry
 
 
 # this one may be a bit redundant, but let's keep it the same

@@ -5,6 +5,8 @@ from fastapi import Depends
 from sqlalchemy import Engine
 from sqlmodel import Session, SQLModel, col, create_engine, func, select
 
+from server.user.models import User
+
 if TYPE_CHECKING:
     from server.config.models import OtpAuthConfig
 from server.config.yaml_loader import get_server_config
@@ -34,8 +36,6 @@ def init_db() -> None:
 
     # creates a default user, if none exists
     with Session(engine) as session:
-        from server.user.models import User
-
         user_count_statement = select(func.count(col(User.id)))
         user_count = session.exec(user_count_statement).one()
         if user_count == 0:

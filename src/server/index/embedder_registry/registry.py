@@ -3,7 +3,7 @@ from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 
 from server.config.models import EmbedderConfigDotted, EmbedderRegistryConfig
-from server.embedder_registry.embedder import Embedder
+from server.index.embedder import Embedder
 
 
 def _load_class_from_file(file: Path, class_name: str) -> type:
