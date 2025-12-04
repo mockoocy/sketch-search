@@ -5,7 +5,7 @@ from server.config.models import (
     EmbedderConfigFile,
     EmbedderRegistryConfig,
 )
-from server.index.embedder_registry.registry import EmbedderRegistry
+from server.index.registry import EmbedderRegistry
 
 
 def test_can_create_an_embedding() -> None:

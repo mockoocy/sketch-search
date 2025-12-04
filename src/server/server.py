@@ -7,7 +7,7 @@ from server.auth.otp.routes import otp_router
 from server.config.models import ServerConfig
 from server.config.yaml_loader import get_server_config
 from server.db_core import init_db
-from server.index.fs_embedding.fs_observer import (
+from server.observer.fs_observer import (
     shutdown_observer,
     start_observer,
 )
