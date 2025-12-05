@@ -1,29 +1,30 @@
 from dataclasses import dataclass
 from datetime import datetime
+from pathlib import Path
+
+
+class Event: ...
 
 
 @dataclass
-class FileCreatedEvent:
-    path: str
+class FileCreatedEvent(Event):
+    path: Path
     created_at: datetime
 
 
 @dataclass
-class FileDeletedEvent:
-    path: str
+class FileDeletedEvent(Event):
+    path: Path
 
 
 @dataclass
-class FileModifiedEvent:
-    path: str
+class FileModifiedEvent(Event):
+    path: Path
     modified_at: datetime
 
 
 @dataclass
-class FileMovedEvent:
-    old_path: str
-    new_path: str
+class FileMovedEvent(Event):
+    old_path: Path
+    new_path: Path
     moved_at: datetime
-
-
-type Event = FileCreatedEvent | FileDeletedEvent | FileModifiedEvent | FileMovedEvent
