@@ -78,15 +78,22 @@ class PostgresConfig(BaseModel):
     password: str
 
 
+class WatcherConfig(BaseModel):
+    watched_directory: str = Field(default="./")
+    watch_recursive: bool = Field(default=False)
+    files_batch_size: int = Field(default=4, ge=1)
+
+
 class ServerConfig(BaseModel):
     host: str = Field(default="127.0.0.1")
     # ge 1024, because occupying well-known ports is cringe
     port: int = Field(default=8000, ge=1024, le=65535)
-    watched_directory: str = Field(default="./")
-    watch_recursive: bool = Field(default=True)
     log_level: LogLevel = Field(default="info")
     auth: AuthConfig = Field(default_factory=lambda: NoAuthConfig())
     session: SessionConfig = Field(default_factory=lambda: SessionConfig())
+    watcher: WatcherConfig = Field(
+        default_factory=lambda: WatcherConfig(),
+    )
     embedder_registry: EmbedderRegistryConfig = Field(
         default_factory=lambda: EmbedderRegistryConfig(
             embedders={

@@ -1,7 +1,5 @@
-from collections.abc import Generator
-from typing import TYPE_CHECKING, Annotated, cast
+from typing import TYPE_CHECKING, cast
 
-from fastapi import Depends
 from sqlalchemy import Engine
 from sqlmodel import Session, SQLModel, col, create_engine, func, select
 
@@ -13,10 +11,8 @@ from server.config.yaml_loader import get_server_config
 from server.user.models import UserRole
 
 
-def _get_db_engine() -> Engine | None:
+def _get_db_engine() -> Engine:
     config = get_server_config()
-    if get_server_config().auth.kind == "none":
-        return None
     postgres_config = config.database
     connect_string = (
         f"postgresql+psycopg://{postgres_config.user}:"
@@ -30,8 +26,6 @@ def _get_db_engine() -> Engine | None:
 
 def init_db() -> None:
     engine = _get_db_engine()
-    if not engine:
-        return
     SQLModel.metadata.create_all(engine)
 
     # creates a default user, if none exists
@@ -45,13 +39,6 @@ def init_db() -> None:
             session.commit()
 
 
-def _get_session() -> Generator[Session]:
+def get_db_session() -> Session:
     engine = _get_db_engine()
-    if not engine:
-        err_msg = "Database engine is not initialized."
-        raise RuntimeError(err_msg)
-    with Session(engine) as session:
-        yield session
-
-
-DbSessionDep = Annotated[Session, Depends(_get_session)]
+    return Session(engine)

@@ -1,8 +1,7 @@
 from fastapi import APIRouter, Request, Response
 from pydantic import EmailStr
 
-from server.auth.otp.dependencies import OtpAuthServiceDep
-from server.session import SessionServiceDep
+from server.dependencies import otp_auth_service, session_service
 
 otp_router = APIRouter(
     prefix="/api/auth/otp",
@@ -14,7 +13,7 @@ otp_router = APIRouter(
 async def start_otp_process(
     email: EmailStr,
     response: Response,
-    otp_service: OtpAuthServiceDep,
+    otp_service: otp_auth_service,
 ) -> dict[str, str]:
     challenge_token = otp_service.start(email=email)
     response.set_cookie(
@@ -32,8 +31,8 @@ async def verify_otp_code(
     code: str,
     request: Request,
     response: Response,
-    otp_service: OtpAuthServiceDep,
-    session_service: SessionServiceDep,
+    otp_service: otp_auth_service,
+    session_service: session_service,
 ) -> dict[str, str]:
     challenge_token = request.cookies.get("challenge_token")
     if not challenge_token:

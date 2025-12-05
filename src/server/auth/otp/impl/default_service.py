@@ -6,7 +6,6 @@ import ssl
 import string
 from datetime import UTC, datetime
 from email.message import EmailMessage
-from typing import cast
 
 from pydantic import EmailStr
 
@@ -19,7 +18,7 @@ from server.auth.otp.exceptions import (
 )
 from server.auth.otp.models import OtpCode
 from server.auth.otp.repository import OtpRepository
-from server.config.models import OtpAuthConfig, ServerConfig
+from server.config.models import SessionConfig, SmtpConfig
 from server.user.models import User
 from server.user.repository import UserRepository
 
@@ -68,12 +67,13 @@ def _generate_challenge_token() -> tuple[str, str]:
 class DefaultOtpAuthService:
     def __init__(
         self,
-        config: ServerConfig,
+        smtp_config: SmtpConfig,
+        session_config: SessionConfig,
         user_repository: UserRepository,
         otp_repository: OtpRepository,
     ) -> None:
-        self._smtp_config = cast("OtpAuthConfig", config.auth).smtp
-        self._session_config = config.session
+        self._smtp_config = smtp_config
+        self._session_config = session_config
         self._user_repository = user_repository
         self._otp_repository = otp_repository
 
