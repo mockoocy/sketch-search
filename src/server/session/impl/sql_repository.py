@@ -26,3 +26,7 @@ class SqlSessionRepository:
         if token:
             self.db_session.delete(token)
             self.db_session.commit()
+
+    def get_token_by_hash(self, token_hash: str) -> SessionToken | None:
+        statement = select(SessionToken).where(SessionToken.token_hash == token_hash)
+        return self.db_session.exec(statement).first()

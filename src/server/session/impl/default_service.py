@@ -1,7 +1,6 @@
 import hashlib
 import secrets
 
-from server.config.models import ServerConfig
 from server.session.models import SessionToken
 from server.session.repository import SessionRepository
 from server.user.models import User
@@ -21,10 +20,8 @@ def _generate_session_token() -> tuple[str, str]:
 class DefaultSessionService:
     def __init__(
         self,
-        server_config: ServerConfig,
         session_repository: SessionRepository,
     ) -> None:
-        self.server_config = server_config
         self.session_repository = session_repository
 
     def issue_token(self, user: User) -> str:
@@ -75,3 +72,19 @@ class DefaultSessionService:
         Returns:
             New authentication token
         """
+        token_hash = _hash_session_token(token)
+        old_session_token = self.session_repository.get_token_by_hash(
+            token_hash=token_hash,
+        )
+        if not old_session_token:
+            err_msg = "Invalid session token"
+            raise ValueError(err_msg)
+
+        new_token, new_token_hash = _generate_session_token()
+        new_session_token = SessionToken(
+            token_hash=new_token_hash,
+            user_id=old_session_token.user_id,
+        )
+        self.session_repository.delete_token(token_hash=token_hash)
+        self.session_repository.save_token(new_session_token)
+        return new_token

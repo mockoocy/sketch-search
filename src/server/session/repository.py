@@ -35,3 +35,15 @@ class SessionRepository(Protocol):
             token: token to be removed
         """
         ...
+
+    def get_token_by_hash(self, token_hash: str) -> SessionToken | None:
+        """
+        Retrieves session token by its hash.
+
+        Args:
+            token_hash: hash of the token to search for
+
+        Returns:
+            SessionToken associated with the hash, or None if not found
+        """
+        ...
