@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from server.auth.otp.impl.default_service import DefaultOtpAuthService
+from server.auth.otp.impl.smtp_sender import SmtpOtpSender
 from server.auth.otp.impl.sql_repository import SqlOtpRepository
 from server.auth.otp.routes import otp_router
 from server.config.models import ServerConfig
@@ -31,15 +32,17 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     app.state.indexed_image_repository = PgVectorIndexedImageRepository(
         app.state.db_session,
     )
+
     app.state.embedder_registry = EmbedderRegistry(app.state.config.embedder_registry)
     app.state.embedder = app.state.embedder_registry.chosen_embedder
     if app.state.config.auth.kind == "otp":
         app.state.otp_auth_repository = SqlOtpRepository(app.state.db_session)
+        app.state.otp_sender = SmtpOtpSender(config=app.state.config.auth.smtp)
         app.state.otp_auth_service = DefaultOtpAuthService(
-            smtp_config=app.state.config.auth.smtp,
             session_config=app.state.config.session,
             otp_repository=app.state.otp_auth_repository,
             user_repository=app.state.user_repository,
+            otp_sender=app.state.otp_sender,
         )
     app.state.index_service = DefaultIndexingService(
         repository=app.state.indexed_image_repository,

@@ -85,6 +85,9 @@ build-backend = "uv_build"
 server = [
     "psycopg[binary]>=3.3.0",
 ]
+tests = [
+    "httpx>=0.28.1",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["./tests/"]

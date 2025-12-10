@@ -1,11 +1,8 @@
 import hashlib
 import hmac
 import secrets
-import smtplib
-import ssl
 import string
 from datetime import UTC, datetime
-from email.message import EmailMessage
 
 from pydantic import EmailStr
 
@@ -18,7 +15,8 @@ from server.auth.otp.exceptions import (
 )
 from server.auth.otp.models import OtpCode
 from server.auth.otp.repository import OtpRepository
-from server.config.models import SessionConfig, SmtpConfig
+from server.auth.otp.sender import OtpSender
+from server.config.models import SessionConfig
 from server.user.models import User
 from server.user.repository import UserRepository
 
@@ -67,15 +65,15 @@ def _generate_challenge_token() -> tuple[str, str]:
 class DefaultOtpAuthService:
     def __init__(
         self,
-        smtp_config: SmtpConfig,
         session_config: SessionConfig,
         user_repository: UserRepository,
         otp_repository: OtpRepository,
+        otp_sender: OtpSender,
     ) -> None:
-        self._smtp_config = smtp_config
         self._session_config = session_config
         self._user_repository = user_repository
         self._otp_repository = otp_repository
+        self._otp_sender = otp_sender
 
     def start(self, email: EmailStr) -> str:
         user = self._user_repository.get_user_by_email(email)
@@ -90,7 +88,7 @@ class DefaultOtpAuthService:
             challenge_token_hash=token_hash,
         )
         self._otp_repository.create_otp(otp_code)
-        self._send_otp_via_email(email, otp)
+        self._otp_sender.send_otp(email=email, code=otp)
         return token
 
     def verify(self, code: str, challenge_token: str) -> User:
@@ -123,21 +121,3 @@ class DefaultOtpAuthService:
             raise UserNotFoundError(err_msg)
 
         return user
-
-    def _send_otp_via_email(self, email: EmailStr, otp: str) -> None:
-        msg = EmailMessage()
-        msg["Subject"] = "Your OTP Code"
-        msg["From"] = self._smtp_config.from_address
-        msg["To"] = email
-        msg.set_content(f"Your OTP code is: {otp}")
-        context = ssl.create_default_context()
-
-        with smtplib.SMTP(
-            host=self._smtp_config.host,
-            port=self._smtp_config.port,
-        ) as session:
-            if self._smtp_config.use_tls:
-                session.starttls(context=context)
-            if self._smtp_config.username and self._smtp_config.password:
-                session.login(self._smtp_config.username, self._smtp_config.password)
-            session.send_message(msg)

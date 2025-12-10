@@ -1,7 +1,23 @@
 from fastapi import APIRouter, Request, Response
-from pydantic import EmailStr
+from pydantic import BaseModel, EmailStr
 
+from server.auth.otp.exceptions import (
+    InvalidChallengeTokenError,
+    OtpConsumedError,
+    OtpExpiredError,
+    OtpInvalidError,
+    UserNotFoundError,
+)
 from server.dependencies import otp_auth_service, session_service
+
+
+class StartOtpRequest(BaseModel):
+    email: EmailStr
+
+
+class VerifyOtpRequest(BaseModel):
+    code: str
+
 
 otp_router = APIRouter(
     prefix="/api/auth/otp",
@@ -9,13 +25,17 @@ otp_router = APIRouter(
 )
 
 
-@otp_router.get("/start")
+@otp_router.post("/start")
 async def start_otp_process(
-    email: EmailStr,
+    body: StartOtpRequest,
     response: Response,
     otp_service: otp_auth_service,
 ) -> dict[str, str]:
-    challenge_token = otp_service.start(email=email)
+    try:
+        challenge_token = otp_service.start(email=body.email)
+    except UserNotFoundError as ex:
+        response.status_code = 404
+        return {"error": str(ex)}
     response.set_cookie(
         key="challenge_token",
         value=challenge_token,
@@ -28,7 +48,7 @@ async def start_otp_process(
 
 @otp_router.post("/verify")
 async def verify_otp_code(
-    code: str,
+    body: VerifyOtpRequest,
     request: Request,
     response: Response,
     otp_service: otp_auth_service,
@@ -40,7 +60,15 @@ async def verify_otp_code(
         return {
             "error": "Challenge token is missing. Please start the OTP process again.",
         }
-    user = otp_service.verify(code=code, challenge_token=challenge_token)
+    try:
+        user = otp_service.verify(code=body.code, challenge_token=challenge_token)
+    except (InvalidChallengeTokenError, OtpConsumedError, OtpExpiredError) as ex:
+        response.status_code = 403
+        return {"error": str(ex)}
+    except OtpInvalidError:
+        response.status_code = 401
+        return {"error": "Invalid OTP code."}
+
     session_token = session_service.issue_token(user=user)
     response.set_cookie(
         key="session_token",

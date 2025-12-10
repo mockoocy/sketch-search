@@ -27,8 +27,8 @@ def test_can_create_an_embedding() -> None:
 
 
 def test_load_from_file() -> None:
-    current_dir = Path(__file__).parent
-    dummy_embedder_file = current_dir / "dummy_embedder.py"
+    mock_dir = Path(__file__) / "mock"
+    dummy_embedder_file = mock_dir / "dummy_embedder.py"
 
     config = EmbedderRegistryConfig(
         embedders={
