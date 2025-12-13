@@ -6,7 +6,7 @@ from sqlmodel import Field, SQLModel
 
 if TYPE_CHECKING:
     from server.config.models import OtpAuthConfig
-from server.config.yaml_loader import get_server_config
+from server.config.models import get_server_config
 
 
 class LoginFailureReason(StrEnum):

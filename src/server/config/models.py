@@ -1,7 +1,16 @@
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field
+from pydantic_settings import (
+    BaseSettings,
+    PydanticBaseSettingsSource,
+    SettingsConfigDict,
+)
+from pydantic_settings.sources import YamlConfigSettingsSource
+
+_CFG_PATH = Path(__file__).parent.parent.parent / "server_config.yaml"
+
 
 # Based on the ones supported by the uvicorn logger
 LogLevel = Literal[
@@ -84,7 +93,7 @@ class WatcherConfig(BaseModel):
     files_batch_size: int = Field(default=4, ge=1)
 
 
-class ServerConfig(BaseModel):
+class ServerConfig(BaseSettings):
     host: str = Field(default="127.0.0.1")
     # ge 1024, because occupying well-known ports is cringe
     port: int = Field(default=8000, ge=1024, le=65535)
@@ -107,4 +116,30 @@ class ServerConfig(BaseModel):
     database: PostgresConfig = Field(...)
 
     # pydantic config - makes it immutable
-    model_config = ConfigDict(frozen=True)
+    model_config = SettingsConfigDict(
+        frozen=True,
+        env_prefix="SERVER__",
+        env_nested_delimiter="__",
+    )
+
+    @classmethod
+    def settings_customise_sources(
+        cls,
+        settings_cls: type[BaseSettings],
+        init_settings: PydanticBaseSettingsSource,
+        env_settings: PydanticBaseSettingsSource,
+        dotenv_settings: PydanticBaseSettingsSource,  # noqa: ARG003
+        file_secret_settings: PydanticBaseSettingsSource,  # noqa: ARG003
+    ) -> tuple[PydanticBaseSettingsSource, ...]:
+        return (
+            env_settings,
+            YamlConfigSettingsSource(settings_cls, _CFG_PATH),
+            init_settings,
+        )
+
+
+_SERVER_CONFIG = ServerConfig()
+
+
+def get_server_config() -> ServerConfig:
+    return _SERVER_CONFIG

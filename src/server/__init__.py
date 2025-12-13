@@ -1,6 +1,6 @@
 import uvicorn
 
-from server.config.yaml_loader import get_server_config
+from server.config.models import get_server_config
 from server.server import create_app
 
 

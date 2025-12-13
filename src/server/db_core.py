@@ -1,13 +1,13 @@
 from typing import TYPE_CHECKING, cast
 
 from sqlalchemy import Engine
-from sqlmodel import Session, SQLModel, col, create_engine, func, select
+from sqlmodel import Session, SQLModel, col, create_engine, func, select, text
 
 from server.user.models import User
 
 if TYPE_CHECKING:
     from server.config.models import OtpAuthConfig
-from server.config.yaml_loader import get_server_config
+from server.config.models import get_server_config
 from server.user.models import UserRole
 
 
@@ -26,7 +26,10 @@ def _get_db_engine() -> Engine:
 
 def init_db() -> None:
     engine = _get_db_engine()
-    SQLModel.metadata.create_all(engine)
+
+    with engine.begin() as conn:
+        conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+        SQLModel.metadata.create_all(conn)
 
     # creates a default user, if none exists
     with Session(engine) as session:

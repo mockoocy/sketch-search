@@ -7,8 +7,7 @@ from server.auth.otp.impl.default_service import DefaultOtpAuthService
 from server.auth.otp.impl.smtp_sender import SmtpOtpSender
 from server.auth.otp.impl.sql_repository import SqlOtpRepository
 from server.auth.otp.routes import otp_router
-from server.config.models import ServerConfig
-from server.config.yaml_loader import get_server_config
+from server.config.models import ServerConfig, get_server_config
 from server.db_core import get_db_session, init_db
 from server.events.event_bus import EventBus
 from server.index.impl.default_service import DefaultIndexingService

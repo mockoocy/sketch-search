@@ -946,6 +946,20 @@ wheels = [
 ]
 
 [[package]]
+name = "pydantic-settings"
+version = "2.12.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pydantic" },
+    { name = "python-dotenv" },
+    { name = "typing-inspection" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/43/4b/ac7e0aae12027748076d72a8764ff1c9d82ca75a7a52622e67ed3f765c54/pydantic_settings-2.12.0.tar.gz", hash = "sha256:005538ef951e3c2a68e1c08b292b5f2e71490def8589d4221b95dab00dafcfd0", size = 194184, upload-time = "2025-11-10T14:25:47.013Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c1/60/5d4751ba3f4a40a6891f24eec885f51afd78d208498268c734e256fb13c4/pydantic_settings-2.12.0-py3-none-any.whl", hash = "sha256:fddb9fd99a5b18da837b29710391e945b1e30c135477f484084ee513adb93809", size = 51880, upload-time = "2025-11-10T14:25:45.546Z" },
+]
+
+[[package]]
 name = "pygments"
 version = "2.19.2"
 source = { registry = "https://pypi.org/simple" }
@@ -1140,6 +1154,7 @@ source = { editable = "." }
 dependencies = [
     { name = "jaxtyping" },
     { name = "pydantic" },
+    { name = "pydantic-settings" },
     { name = "pymilvus" },
     { name = "timm" },
     { name = "torch", version = "2.9.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(sys_platform == 'darwin' and extra == 'extra-4-sktr-cpu') or (extra == 'extra-4-sktr-cpu' and extra == 'extra-4-sktr-cu128')" },
@@ -1165,6 +1180,7 @@ server = [
     { name = "blinker" },
     { name = "fastapi" },
     { name = "pgvector" },
+    { name = "psycopg", extra = ["binary"] },
     { name = "pydantic", extra = ["email"] },
     { name = "pyjwt" },
     { name = "sqlmodel" },
@@ -1172,9 +1188,11 @@ server = [
     { name = "watchdog" },
 ]
 tests = [
+    { name = "httpx" },
     { name = "matplotlib" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
+    { name = "testcontainers" },
 ]
 train = [
     { name = "tensorboard" },
@@ -1185,30 +1203,25 @@ train = [
     { name = "torchvision", version = "0.24.1+cu128", source = { registry = "https://download.pytorch.org/whl/cu128" }, marker = "(platform_machine != 'aarch64' and extra == 'extra-4-sktr-cu128') or (sys_platform != 'linux' and extra == 'extra-4-sktr-cu128') or (extra == 'extra-4-sktr-cpu' and extra == 'extra-4-sktr-cu128')" },
 ]
 
-[package.dev-dependencies]
-server = [
-    { name = "psycopg", extra = ["binary"] },
-    { name = "testcontainers" },
-]
-tests = [
-    { name = "httpx" },
-]
-
 [package.metadata]
 requires-dist = [
     { name = "blinker", marker = "extra == 'server'", specifier = ">=1.9.0" },
     { name = "fastapi", marker = "extra == 'server'", specifier = ">=0.120" },
+    { name = "httpx", marker = "extra == 'tests'", specifier = ">=0.28.1" },
     { name = "jaxtyping", specifier = ">=0.3.2" },
     { name = "matplotlib", marker = "extra == 'tests'", specifier = ">=3.10.3" },
     { name = "pgvector", marker = "extra == 'server'", specifier = ">=0.4.1" },
+    { name = "psycopg", extras = ["binary"], marker = "extra == 'server'", specifier = ">=3.3.0" },
     { name = "pydantic", specifier = ">=2.11.7" },
     { name = "pydantic", extras = ["email"], marker = "extra == 'server'", specifier = ">=2.11.7" },
+    { name = "pydantic-settings", specifier = ">=2.12.0" },
     { name = "pyjwt", marker = "extra == 'server'", specifier = ">=2.10.1" },
     { name = "pymilvus", specifier = ">=2.6.0" },
     { name = "pytest", marker = "extra == 'tests'", specifier = ">=8.4.1" },
     { name = "pytest-asyncio", marker = "extra == 'tests'", specifier = ">=1.3.0" },
     { name = "sqlmodel", marker = "extra == 'server'", specifier = ">=0.0.27" },
     { name = "tensorboard", marker = "extra == 'train'", specifier = ">=2.20.0" },
+    { name = "testcontainers", extras = ["postgres"], marker = "extra == 'tests'", specifier = ">=4.13.3" },
     { name = "timm", specifier = ">=1.0.17" },
     { name = "torch", specifier = ">=2.7.0" },
     { name = "torch", marker = "extra == 'cpu'", specifier = ">=2.7.0", index = "https://download.pytorch.org/whl/cpu", conflict = { package = "sktr", extra = "cpu" } },
@@ -1221,13 +1234,6 @@ requires-dist = [
     { name = "watchdog", marker = "extra == 'server'", specifier = ">=6.0.0" },
 ]
 provides-extras = ["server", "cpu", "cu128", "train", "tests"]
-
-[package.metadata.requires-dev]
-server = [
-    { name = "psycopg", extras = ["binary"], specifier = ">=3.3.0" },
-    { name = "testcontainers", extras = ["postgres"], specifier = ">=4.13.3" },
-]
-tests = [{ name = "httpx", specifier = ">=0.28.1" }]
 
 [[package]]
 name = "sniffio"
