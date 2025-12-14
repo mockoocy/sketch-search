@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime
 from pathlib import Path
 
@@ -9,6 +10,10 @@ from server.index.exceptions import IndexCollisionError
 from server.index.models import IndexedImage
 from server.index.repository import IndexedImageRepository
 from server.index.utils import create_content_hash
+
+
+def _user_visible_name_from_path(path: Path) -> str:
+    return f"{uuid.uuid4()}_{path.name}"
 
 
 class DefaultIndexingService:
@@ -37,6 +42,7 @@ class DefaultIndexingService:
             image = IndexedImage(
                 path=str(path),
                 embedding=embedding,
+                user_visible_name=_user_visible_name_from_path(path),
                 created_at=created_at,
                 modified_at=modified_at,
                 content_hash=content_hash,

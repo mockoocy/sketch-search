@@ -1,3 +1,4 @@
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, Literal
 
@@ -82,9 +83,11 @@ class EmbedderRegistryConfig(BaseModel):
 class PostgresConfig(BaseModel):
     host: str = Field(default="localhost")
     port: int = Field(default=5432, ge=1, le=65535)
-    database: str
-    user: str
-    password: str
+    # These defaults are not reasonable, but at least it makes it
+    # easier to type check :)
+    database: str = Field(default="postgres")
+    user: str = Field(default="postgres")
+    password: str = Field(default="postgres")
 
 
 class WatcherConfig(BaseModel):
@@ -113,7 +116,7 @@ class ServerConfig(BaseSettings):
             chosen_embedder="sktr",
         ),
     )
-    database: PostgresConfig = Field(...)
+    database: PostgresConfig = PostgresConfig()
 
     # pydantic config - makes it immutable
     model_config = SettingsConfigDict(
@@ -138,8 +141,6 @@ class ServerConfig(BaseSettings):
         )
 
 
-_SERVER_CONFIG = ServerConfig()
-
-
+@lru_cache
 def get_server_config() -> ServerConfig:
-    return _SERVER_CONFIG
+    return ServerConfig()

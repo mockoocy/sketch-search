@@ -3,6 +3,7 @@ from typing import Protocol
 
 from sqlmodel import Sequence
 
+from server.images.models import ImageSearchQuery
 from server.index.models import IndexedImage
 
 
@@ -29,4 +30,12 @@ class IndexedImageRepository(Protocol):
 
     def get_image_by_path(self, image_path: Path) -> IndexedImage | None:
         """Retrieve an image embedding from the repository by its path."""
+        ...
+
+    def get_image_by_id(self, image_id: int) -> IndexedImage | None:
+        """Retrieve an image embedding from the repository by its ID."""
+        ...
+
+    def query_images(self, query: ImageSearchQuery) -> list[IndexedImage]:
+        """Query images based on the provided search query."""
         ...

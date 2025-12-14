@@ -17,5 +17,6 @@ class IndexedImage(SQLModel, table=True):
         default_factory=now_factory,
         sa_column_kwargs={"onupdate": now_factory},
     )
+    user_visible_name: str
     content_hash: str
     model_name: str
