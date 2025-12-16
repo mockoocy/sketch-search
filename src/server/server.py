@@ -50,11 +50,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
         embedder=app.state.embedder,
     )
 
-    app.state.image_repository = FsImageRepository(app.state.config.watcher)
+    app.state.image_repository = FsImageRepository()
     app.state.image_service = DefaultImageService(
         image_repository=app.state.image_repository,
         indexed_image_repository=app.state.indexed_image_repository,
         embedder=app.state.embedder,
+        thumbnail_config=app.state.config.thumbnail,
+        watcher_config=app.state.config.watcher,
     )
     app.state.background_embedder = BackgroundEmbedder(
         config=app.state.config.watcher,

@@ -95,6 +95,11 @@ class WatcherConfig(BaseModel):
     files_batch_size: int = Field(default=4, ge=1)
 
 
+class ThumbnailConfig(BaseModel):
+    size: tuple[int, int] = Field(default=(128, 128))
+    thumbnail_directory: str = Field(default="./thumbnails")
+
+
 class ServerConfig(BaseSettings):
     host: str = Field(default="127.0.0.1")
     # ge 1024, because occupying well-known ports is cringe
@@ -104,6 +109,9 @@ class ServerConfig(BaseSettings):
     session: SessionConfig = Field(default_factory=lambda: SessionConfig())
     watcher: WatcherConfig = Field(
         default_factory=lambda: WatcherConfig(),
+    )
+    thumbnail: ThumbnailConfig = Field(
+        default_factory=lambda: ThumbnailConfig(),
     )
     embedder_registry: EmbedderRegistryConfig = Field(
         default_factory=lambda: EmbedderRegistryConfig(

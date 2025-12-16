@@ -2,6 +2,7 @@ from collections.abc import Generator
 from io import BytesIO
 from pathlib import Path
 
+import numpy as np
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -24,7 +25,7 @@ def test_client(tmp_path: Path, db_session: Session) -> Generator[TestClient]:
     app.include_router(images_router)
     app.state.config = ServerConfig(
         watcher=WatcherConfig(
-            watched_directory=tmp_path.as_posix(),
+            watched_directory=str(tmp_path.parent),
         ),
         database=PostgresConfig(
             host="localhost",
@@ -35,11 +36,7 @@ def test_client(tmp_path: Path, db_session: Session) -> Generator[TestClient]:
         ),
     )
 
-    app.state.image_repository = FsImageRepository(
-        WatcherConfig(
-            watched_directory=tmp_path.as_posix(),
-        ),
-    )
+    app.state.image_repository = FsImageRepository()
     app.state.indexed_image_repository = PgVectorIndexedImageRepository(
         db_session=db_session,
     )
@@ -47,6 +44,8 @@ def test_client(tmp_path: Path, db_session: Session) -> Generator[TestClient]:
         image_repository=app.state.image_repository,
         indexed_image_repository=app.state.indexed_image_repository,
         embedder=DummyEmbedder(),
+        thumbnail_config=app.state.config.thumbnail,
+        watcher_config=app.state.config.watcher,
     )
     app.state.indexing_service = DefaultIndexingService(
         repository=app.state.indexed_image_repository,
@@ -117,7 +116,7 @@ def test_search_by_image(test_client: TestClient) -> None:
             IndexedImage(
                 path="test_search_by_image.jpg",
                 user_visible_name="Bobby",
-                embedding=([0.9, 0.1] + [0.0] * 1534),
+                embedding=np.array([1.0] * 1536),
                 content_hash="c",
                 model_name="m",
             ),

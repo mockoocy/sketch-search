@@ -22,16 +22,16 @@ class DefaultIndexingService:
         self._repository = repository
         self._embedder = embedder
 
-    def embed_images(self, relative_image_paths: list[Path]) -> None:
+    def embed_images(self, image_paths: list[Path]) -> None:
         """Embed a batch of images located at the given paths into the index."""
 
         images_bytes = [
-            Image.open(path).convert("RGB").tobytes() for path in relative_image_paths
+            Image.open(path).convert("RGB").tobytes() for path in image_paths
         ]
         embeddings = self._embedder.embed(images_bytes)
         images: list[IndexedImage] = []
         for path, embedding, image_bytes in zip(
-            relative_image_paths,
+            image_paths,
             embeddings,
             images_bytes,
             strict=False,

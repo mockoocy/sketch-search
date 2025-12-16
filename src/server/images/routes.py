@@ -65,7 +65,7 @@ async def add_image(  # noqa: PLR0913
         return {"status": "error", "message": "Empty file."}
     relative_path = Path(directory) / image.filename
     image_service.add_image(content, relative_path)
-    full_path = config.watcher.watched_directory / relative_path
+    full_path = (config.watcher.watched_directory / relative_path).resolve()
     indexing_service.embed_images([full_path])
     return {"status": "success"}
 

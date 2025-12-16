@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Protocol
 
 from server.images.models import ImageSearchQuery
-from server.index.models import IndexedImage
+from server.index.models import Embedding, IndexedImage
 
 
 class IndexedImageRepository(Protocol):
@@ -20,7 +20,7 @@ class IndexedImageRepository(Protocol):
 
     def get_k_nearest_images(
         self,
-        embedding: list[float],
+        embedding: Embedding,
         k: int,
     ) -> list[IndexedImage]:
         """Retrieve the k-nearest images to the given image embedding."""
