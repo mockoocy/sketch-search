@@ -1,22 +1,45 @@
 from datetime import UTC, datetime
+from typing import Annotated, Any, cast
 
+import numpy as np
+import numpy.typing as npt
 from pgvector.sqlalchemy import Vector
+from pydantic import BeforeValidator, ConfigDict, PlainSerializer
 from sqlmodel import Column, Field, SQLModel
 
 
-def now_factory() -> datetime:
+def _now_factory() -> datetime:
     return datetime.now(UTC)
+
+
+def _pydantic_np_array_validator(value: Any) -> npt.NDArray[np.floating]:  # noqa: ANN401
+    if isinstance(value, np.ndarray):
+        return cast("npt.NDArray[np.floating]", value)
+    return np.array(value)
+
+
+def _numpy_array_serializer(value: npt.NDArray[np.floating]) -> str:
+    return str(value)
+
+
+type Embedding = Annotated[
+    npt.NDArray[np.floating],
+    BeforeValidator(_pydantic_np_array_validator),
+    PlainSerializer(_numpy_array_serializer, return_type=str),
+]
 
 
 class IndexedImage(SQLModel, table=True):
     id: int = Field(default=None, primary_key=True)
     path: str = Field(index=True, unique=True)
-    embedding: list[float] = Field(sa_column=Column(Vector(1536)))
-    created_at: datetime = Field(default_factory=now_factory)
+    embedding: Embedding = Field(sa_column=Column(Vector(1536)))
+    created_at: datetime = Field(default_factory=_now_factory)
     modified_at: datetime = Field(
-        default_factory=now_factory,
-        sa_column_kwargs={"onupdate": now_factory},
+        default_factory=_now_factory,
+        sa_column_kwargs={"onupdate": _now_factory},
     )
     user_visible_name: str
     content_hash: str
     model_name: str
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)

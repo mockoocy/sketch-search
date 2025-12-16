@@ -2,7 +2,7 @@ import hashlib
 import hmac
 import secrets
 import string
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from pydantic import EmailStr
 
@@ -86,6 +86,8 @@ class DefaultOtpAuthService:
             code_hash=otp_hash,
             user_id=user.id,
             challenge_token_hash=token_hash,
+            expires_at=datetime.now(UTC)
+            + timedelta(seconds=self._session_config.expires_in_s),
         )
         self._otp_repository.create_otp(otp_code)
         self._otp_sender.send_otp(email=email, code=otp)

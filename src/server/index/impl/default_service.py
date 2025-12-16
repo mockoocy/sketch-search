@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 
+import numpy as np
 from matplotlib.dates import UTC
 from PIL import Image
 
@@ -21,16 +22,16 @@ class DefaultIndexingService:
         self._repository = repository
         self._embedder = embedder
 
-    def embed_images(self, image_paths: list[Path]) -> None:
+    def embed_images(self, relative_image_paths: list[Path]) -> None:
         """Embed a batch of images located at the given paths into the index."""
 
         images_bytes = [
-            Image.open(path).convert("RGB").tobytes() for path in image_paths
+            Image.open(path).convert("RGB").tobytes() for path in relative_image_paths
         ]
         embeddings = self._embedder.embed(images_bytes)
         images: list[IndexedImage] = []
         for path, embedding, image_bytes in zip(
-            image_paths,
+            relative_image_paths,
             embeddings,
             images_bytes,
             strict=False,
@@ -41,7 +42,7 @@ class DefaultIndexingService:
             content_hash = create_content_hash(image_bytes)
             image = IndexedImage(
                 path=str(path),
-                embedding=embedding,
+                embedding=np.array(embedding, dtype=np.float32),
                 user_visible_name=_user_visible_name_from_path(path),
                 created_at=created_at,
                 modified_at=modified_at,

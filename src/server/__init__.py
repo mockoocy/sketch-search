@@ -1,13 +1,18 @@
+from typing import TYPE_CHECKING, cast
+
 import uvicorn
 
-from server.config.models import get_server_config
 from server.server import create_app
+
+if TYPE_CHECKING:
+    from server.config import ServerConfig
 
 
 def serve() -> None:
-    config = get_server_config()
+    app = create_app()
+    config = cast("ServerConfig", app.state.config)
     uvicorn.run(
-        create_app(config),
+        app,
         host=config.host,
         port=config.port,
         log_level=config.log_level,

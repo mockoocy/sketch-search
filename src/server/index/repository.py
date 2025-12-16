@@ -1,8 +1,6 @@
 from pathlib import Path
 from typing import Protocol
 
-from sqlmodel import Sequence
-
 from server.images.models import ImageSearchQuery
 from server.index.models import IndexedImage
 
@@ -24,7 +22,7 @@ class IndexedImageRepository(Protocol):
         self,
         embedding: list[float],
         k: int,
-    ) -> Sequence[IndexedImage]:
+    ) -> list[IndexedImage]:
         """Retrieve the k-nearest images to the given image embedding."""
         ...
 

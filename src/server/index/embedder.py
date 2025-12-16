@@ -1,5 +1,8 @@
 from typing import Protocol
 
+import numpy as np
+import numpy.typing as npt
+
 
 class Embedder(Protocol):
     """
@@ -15,7 +18,7 @@ class Embedder(Protocol):
 
     name: str
 
-    def embed(self, images: list[bytes]) -> list[list[float]]:
+    def embed(self, images: list[bytes]) -> npt.NDArray[np.float32]:
         """
         Embed a batch of images.
 

@@ -1,4 +1,3 @@
-from functools import lru_cache
 from pathlib import Path
 from typing import Any, Literal
 
@@ -135,12 +134,8 @@ class ServerConfig(BaseSettings):
         file_secret_settings: PydanticBaseSettingsSource,  # noqa: ARG003
     ) -> tuple[PydanticBaseSettingsSource, ...]:
         return (
+            # apparently, the order matters. The first one is the most authoritative
+            init_settings,
             env_settings,
             YamlConfigSettingsSource(settings_cls, _CFG_PATH),
-            init_settings,
         )
-
-
-@lru_cache
-def get_server_config() -> ServerConfig:
-    return ServerConfig()

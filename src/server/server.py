@@ -7,9 +7,11 @@ from server.auth.otp.impl.default_service import DefaultOtpAuthService
 from server.auth.otp.impl.smtp_sender import SmtpOtpSender
 from server.auth.otp.impl.sql_repository import SqlOtpRepository
 from server.auth.otp.routes import otp_router
-from server.config.models import ServerConfig, get_server_config
+from server.config.models import ServerConfig
 from server.db_core import get_db_session, init_db
 from server.events.event_bus import EventBus
+from server.images.impl.default_service import DefaultImageService
+from server.images.impl.fs_repository import FsImageRepository
 from server.index.impl.default_service import DefaultIndexingService
 from server.index.impl.pgvector_repository import PgVectorIndexedImageRepository
 from server.index.registry import EmbedderRegistry
@@ -21,9 +23,9 @@ from server.user.impl.sql_repository import SqlUserRepository
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
+    app.state.config = ServerConfig()
     app.state.event_bus = EventBus()
-    app.state.config = get_server_config()
-    app.state.db_session = get_db_session()
+    app.state.db_session = get_db_session(app.state.config.database)
 
     app.state.user_repository = SqlUserRepository(app.state.db_session)
     app.state.session_repository = SqlSessionRepository(app.state.db_session)
@@ -43,8 +45,15 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
             user_repository=app.state.user_repository,
             otp_sender=app.state.otp_sender,
         )
-    app.state.index_service = DefaultIndexingService(
+    app.state.indexing_service = DefaultIndexingService(
         repository=app.state.indexed_image_repository,
+        embedder=app.state.embedder,
+    )
+
+    app.state.image_repository = FsImageRepository(app.state.config.watcher)
+    app.state.image_service = DefaultImageService(
+        image_repository=app.state.image_repository,
+        indexed_image_repository=app.state.indexed_image_repository,
         embedder=app.state.embedder,
     )
     app.state.background_embedder = BackgroundEmbedder(
@@ -53,16 +62,16 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
         event_bus=app.state.event_bus,
     )
     app.state.background_embedder.start()
-    init_db()
+    init_db(app.state.config)
     yield
     app.state.background_embedder.stop()
 
 
-def create_app(server_config: ServerConfig) -> FastAPI:
+def create_app() -> FastAPI:
     app = FastAPI(lifespan=lifespan)
-    app.state.config = get_server_config()
+    app.state.config = ServerConfig()
 
-    if server_config.auth.kind == "otp":
+    if app.state.config.auth.kind == "otp":
         app.include_router(otp_router)
 
     return app

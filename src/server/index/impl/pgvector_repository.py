@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Any
 
-from sqlmodel import Sequence, Session, select
+from sqlmodel import Session, select
 
 from server.images.models import ImageSearchQuery
 from server.index.models import IndexedImage
@@ -42,7 +42,7 @@ class PgVectorIndexedImageRepository:
         self,
         embedding: list[float],
         k: int,
-    ) -> Sequence[IndexedImage]:
+    ) -> list[IndexedImage]:
         """Retrieve the k-nearest images to the given image embedding."""
         query = (
             select(
@@ -53,7 +53,8 @@ class PgVectorIndexedImageRepository:
             )
             .limit(k)
         )
-        return self._db_session.exec(query).all()
+
+        return list(self._db_session.exec(query).all())
 
     def get_image_by_path(self, image_path: Path) -> IndexedImage | None:
         """Retrieve an image embedding from the repository by its path."""
@@ -93,4 +94,5 @@ class PgVectorIndexedImageRepository:
             .offset((query.page - 1) * query.items_per_page)
             .limit(query.items_per_page)
         )
-        return self._db_session.exec(stmt).all()
+
+        return list(self._db_session.exec(stmt).all())

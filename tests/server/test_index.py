@@ -63,7 +63,7 @@ def test_move_image() -> None:
     indexed_image = IndexedImage(
         path=str(old_path),
         user_visible_name="old_image.jpg",
-        embedding=[0.1, 0.2, 0.3],
+        embedding=([0.1, 0.2, 0.3]),
         created_at=datetime(2005, 4, 2, 21, 37, 0, tzinfo=UTC),
         modified_at=datetime(2025, 4, 2, 21, 37, 0, tzinfo=UTC),
         content_hash="hash",
@@ -87,21 +87,21 @@ def test_get_k_nearest_images(db_session: Session) -> None:
         IndexedImage(
             path="a.jpg",
             user_visible_name="a",
-            embedding=[1.0] + [0.0] * 1535,
+            embedding=([1.0] + [0.0] * 1535),
             content_hash="a",
             model_name="m",
         ),
         IndexedImage(
             path="b.jpg",
             user_visible_name="b",
-            embedding=[0.0, 1.0] + [0.0] * 1534,
+            embedding=([0.0, 1.0] + [0.0] * 1534),
             content_hash="b",
             model_name="m",
         ),
         IndexedImage(
             path="c.jpg",
             user_visible_name="c",
-            embedding=[0.9, 0.1] + [0.0] * 1534,
+            embedding=([0.9, 0.1] + [0.0] * 1534),
             content_hash="c",
             model_name="m",
         ),
@@ -125,7 +125,7 @@ def test_query_images_filters_order_and_pagination(db_session: Session) -> None:
         IndexedImage(
             path="cat_1.jpg",
             user_visible_name="cat_1",
-            embedding=[1.0] + [0.0] * 1535,
+            embedding=([1.0] + [0.0] * 1535),
             created_at=base_time,
             modified_at=base_time + timedelta(hours=1),
             content_hash="a",
@@ -134,7 +134,7 @@ def test_query_images_filters_order_and_pagination(db_session: Session) -> None:
         IndexedImage(
             path="dog_1.jpg",
             user_visible_name="dog_1",
-            embedding=[0.0, 1.0] + [0.0] * 1534,
+            embedding=([0.0, 1.0] + [0.0] * 1534),
             created_at=base_time + timedelta(days=1),
             modified_at=base_time + timedelta(hours=2),
             content_hash="b",
@@ -143,7 +143,7 @@ def test_query_images_filters_order_and_pagination(db_session: Session) -> None:
         IndexedImage(
             path="dog_2.jpg",
             user_visible_name="dog_2",
-            embedding=[0.0, 0.0, 1.0] + [0.0] * 1533,
+            embedding=([0.0, 0.0, 1.0] + [0.0] * 1533),
             created_at=base_time + timedelta(days=2),
             modified_at=base_time + timedelta(hours=3),
             content_hash="c",

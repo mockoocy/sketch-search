@@ -12,7 +12,7 @@ def test_can_create_an_embedding() -> None:
     config = EmbedderRegistryConfig(
         embedders={
             "dummy": EmbedderConfigDotted(
-                target="tests.server.dummy_embedder.DummyEmbedder",
+                target="tests.server.mock.dummy_embedder.DummyEmbedder",
             ),
         },
         chosen_embedder="dummy",
@@ -27,7 +27,7 @@ def test_can_create_an_embedding() -> None:
 
 
 def test_load_from_file() -> None:
-    mock_dir = Path(__file__) / "mock"
+    mock_dir = Path(__file__).parent / "mock"
     dummy_embedder_file = mock_dir / "dummy_embedder.py"
 
     config = EmbedderRegistryConfig(
