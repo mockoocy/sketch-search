@@ -1,9 +1,8 @@
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 import numpy as np
-from matplotlib.dates import UTC
 from PIL import Image
 
 from server.index.embedder import Embedder

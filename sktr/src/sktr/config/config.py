@@ -13,7 +13,7 @@ def _load_config(file_path: Path) -> Config:
     return Config.model_validate(config_data)
 
 
-_REPOSITORY_ROOT = Path(__file__).parent.parent.parent
+_REPOSITORY_ROOT = Path(__file__).parent.parent.parent.parent
 
 CFG = _load_config(_REPOSITORY_ROOT / "config.yaml")
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
