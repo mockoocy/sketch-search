@@ -60,7 +60,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     )
     app.state.background_embedder = BackgroundEmbedder(
         config=app.state.config.watcher,
-        indexing_service=app.state.index_service,
+        indexing_service=app.state.indexing_service,
         event_bus=app.state.event_bus,
     )
     app.state.background_embedder.start()

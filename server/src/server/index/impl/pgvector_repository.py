@@ -4,7 +4,7 @@ from typing import Any
 from sqlmodel import Session, select
 
 from server.images.models import ImageSearchQuery
-from server.index.models import IndexedImage
+from server.index.models import Embedding, IndexedImage
 
 _COL_QUERY_MAP: dict[str, Any] = {  # The typing for models is a bit wonky
     "created_at": IndexedImage.created_at,
@@ -40,7 +40,7 @@ class PgVectorIndexedImageRepository:
 
     def get_k_nearest_images(
         self,
-        embedding: list[float],
+        embedding: Embedding,
         k: int,
     ) -> list[IndexedImage]:
         """Retrieve the k-nearest images to the given image embedding."""

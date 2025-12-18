@@ -9,7 +9,7 @@ from pydantic_settings import (
 )
 from pydantic_settings.sources import YamlConfigSettingsSource
 
-_CFG_PATH = Path(__file__).parent.parent.parent / "server_config.yaml"
+_CFG_PATH = Path(__file__).parent.parent.parent.parent / "server_config.yaml"
 
 
 # Based on the ones supported by the uvicorn logger
