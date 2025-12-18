@@ -26,6 +26,15 @@ repos:
       # and recommend running something like `poetry run ruff --fix` locally instead.
       - id: ruff
       - id: ruff-format
-
+  # I believe it should be later displaced by some
+  # non-local repository - should be possible.
+  - repo: local
+    hooks:
+      - id: eslint-ui
+        name: eslint ui
+        entry: pnpm --prefix ui lint
+        language: system
+        pass_filenames: false
+        types_or: [javascript, jsx, ts, tsx]
 
 ...
