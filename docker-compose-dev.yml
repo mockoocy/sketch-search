@@ -13,8 +13,6 @@ services:
   server:
     build: .
     restart: always
-    ports:
-      - "8000:8000"
     depends_on:
       - db
     environment:
@@ -25,6 +23,9 @@ services:
       SERVER__DATABASE__PORT: "5432"
       SERVER__DEV: "true"
       SERVER__WATCHER__WATCHED_DIRECTORY: /images/
+      SERVER__LOG_LEVEL: DEBUG
+      SERVER__HOST: "0.0.0.0"
+      SERVER__PORT: "8000"
     volumes:
       - ./server:/app/server
       - ./sktr:/app/sktr
@@ -38,5 +39,4 @@ services:
     depends_on:
       - server
     volumes:
-      - ./ui/src:/app/src
-      - ./ui/public:/app/public
+      - ./ui/:/app

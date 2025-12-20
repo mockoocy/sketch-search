@@ -8,6 +8,7 @@ from server.config.models import WatcherConfig
 from server.events.event_bus import EventBus
 from server.events.events import FileCreatedEvent
 from server.index.service import IndexingService
+from server.logger import app_logger
 from server.observer.fs_observer import ImageWatcherHandler
 
 EMBED_MAX_WAIT_SECONDS = 1.0
@@ -58,11 +59,15 @@ class BackgroundEmbedder:
                 batch.append(file_path)
             if not batch:
                 continue
-            await self._loop.run_in_executor(
-                None,
-                self._indexing_service.embed_images,
-                batch,
-            )
+            app_logger.info("Embedding and indexing %d files...", len(batch))
+            try:
+                await self._loop.run_in_executor(
+                    None,
+                    self._indexing_service.embed_images,
+                    batch,
+                )
+            except Exception:  # noqa: BLE001
+                app_logger.exception("Error during background embedding")
 
     def enqueue_file(self, file_path: Path) -> None:
         self._loop.call_soon_threadsafe(self._queue.put_nowait, file_path)
@@ -70,6 +75,7 @@ class BackgroundEmbedder:
     def start(self) -> None:
         self._observer.start()
         self._worker_task = self._loop.create_task(self._run())
+        app_logger.info("Watching %s", self._config.watched_directory)
 
     def stop(self) -> None:
         if self._observer.is_alive():

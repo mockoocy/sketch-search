@@ -3,6 +3,8 @@ from typing import Protocol
 import numpy as np
 import numpy.typing as npt
 
+from server.index.models import Embedding
+
 
 class Embedder(Protocol):
     """
@@ -18,7 +20,7 @@ class Embedder(Protocol):
 
     name: str
 
-    def embed(self, images: list[bytes]) -> npt.NDArray[np.float32]:
+    def embed(self, images: npt.NDArray[np.float32]) -> Embedding:
         """
         Embed a batch of images.
 

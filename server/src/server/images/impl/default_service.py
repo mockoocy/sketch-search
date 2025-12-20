@@ -14,6 +14,9 @@ from server.images.repository import ImageRepository
 from server.index.embedder import Embedder
 from server.index.models import IndexedImage
 from server.index.repository import IndexedImageRepository
+from server.logger import app_logger
+
+QUERY_IMAGE_BATCH_SIZE = 1000
 
 
 class DefaultImageService:
@@ -88,3 +91,29 @@ class DefaultImageService:
             raise ImageNotFoundError(err_msg)
         embedding = indexed_image.embedding
         return self._indexed_image_repository.get_k_nearest_images(embedding, top_k)
+
+    def get_unindexed_images(self) -> list[Path]:
+        watched_directory = Path(self._watcher_config.watched_directory).resolve()
+        recursive = self._watcher_config.watch_recursive
+        all_image_paths = self._image_repository.list_images(
+            watched_directory,
+            recursive=recursive,
+        )
+        indexed_image_paths = set[Path]()
+        while True:
+            batch = self._indexed_image_repository.query_images(
+                ImageSearchQuery(
+                    page=len(indexed_image_paths) // QUERY_IMAGE_BATCH_SIZE + 1,
+                    items_per_page=QUERY_IMAGE_BATCH_SIZE,
+                ),
+            )
+            indexed_image_paths.update(Path(img.path).resolve() for img in batch)
+            if len(batch) < QUERY_IMAGE_BATCH_SIZE:
+                break
+        unindexed_images = [
+            path
+            for path in all_image_paths
+            if path.resolve() not in indexed_image_paths
+        ]
+        app_logger.info(f"Found {len(unindexed_images)} unindexed images.")
+        return unindexed_images

@@ -1,4 +1,3 @@
-import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -12,10 +11,6 @@ from server.index.repository import IndexedImageRepository
 from server.index.utils import create_content_hash
 
 
-def _user_visible_name_from_path(path: Path) -> str:
-    return f"{uuid.uuid4()}_{path.name}"
-
-
 class DefaultIndexingService:
     def __init__(self, repository: IndexedImageRepository, embedder: Embedder) -> None:
         self._repository = repository
@@ -24,15 +19,21 @@ class DefaultIndexingService:
     def embed_images(self, image_paths: list[Path]) -> None:
         """Embed a batch of images located at the given paths into the index."""
 
-        images_bytes = [
-            Image.open(path).convert("RGB").tobytes() for path in image_paths
-        ]
-        embeddings = self._embedder.embed(images_bytes)
+        image_pil = [Image.open(path).convert("RGB") for path in image_paths]
+        images_numpy = np.array(
+            [
+                np.array(img.resize((224, 224)), dtype=np.float32) / 255.0
+                for img in image_pil
+            ],
+            dtype=np.float32,
+        )
+
+        embeddings = self._embedder.embed(images_numpy)
         images: list[IndexedImage] = []
         for path, embedding, image_bytes in zip(
             image_paths,
             embeddings,
-            images_bytes,
+            images_numpy,
             strict=False,
         ):
             file_stats = path.stat()
@@ -42,7 +43,7 @@ class DefaultIndexingService:
             image = IndexedImage(
                 path=str(path),
                 embedding=np.array(embedding, dtype=np.float32),
-                user_visible_name=_user_visible_name_from_path(path),
+                user_visible_name=path.name,
                 created_at=created_at,
                 modified_at=modified_at,
                 content_hash=content_hash,
@@ -65,3 +66,7 @@ class DefaultIndexingService:
             raise IndexCollisionError(err_msg)
         image.path = str(new_path)
         self._repository.update_image(image)
+
+    def get_collection_size(self) -> int:
+        """Get the total number of indexed images in the collection."""
+        return self._repository.get_total_images_count()

@@ -12,13 +12,25 @@ from server.db_core import get_db_session, init_db
 from server.events.event_bus import EventBus
 from server.images.impl.default_service import DefaultImageService
 from server.images.impl.fs_repository import FsImageRepository
+from server.images.routes import images_router
+from server.images.service import ImageService
 from server.index.impl.default_service import DefaultIndexingService
 from server.index.impl.pgvector_repository import PgVectorIndexedImageRepository
 from server.index.registry import EmbedderRegistry
+from server.logger import app_logger
 from server.observer.background_embedder import BackgroundEmbedder
 from server.session.impl.default_service import DefaultSessionService
 from server.session.impl.sql_repository import SqlSessionRepository
 from server.user.impl.sql_repository import SqlUserRepository
+
+
+async def bootstrap_index(
+    image_service: ImageService,
+    background_embedder: BackgroundEmbedder,
+) -> None:
+    missing_images = image_service.get_unindexed_images()
+    for path in missing_images:
+        background_embedder.enqueue_file(path)
 
 
 @asynccontextmanager
@@ -26,6 +38,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     app.state.config = ServerConfig()
     app.state.event_bus = EventBus()
     app.state.db_session = get_db_session(app.state.config.database)
+    app_logger.setLevel(app.state.config.log_level)
 
     app.state.user_repository = SqlUserRepository(app.state.db_session)
     app.state.session_repository = SqlSessionRepository(app.state.db_session)
@@ -65,6 +78,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     )
     app.state.background_embedder.start()
     init_db(app.state.config)
+    await bootstrap_index(
+        image_service=app.state.image_service,
+        background_embedder=app.state.background_embedder,
+    )
+    app_logger.info("Server startup complete.")
     yield
     app.state.background_embedder.stop()
 
@@ -75,5 +93,6 @@ def create_app() -> FastAPI:
 
     if app.state.config.auth.kind == "otp":
         app.include_router(otp_router)
+    app.include_router(images_router)
 
     return app

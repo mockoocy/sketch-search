@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 from typing import Any, Literal
 
@@ -13,14 +14,15 @@ _CFG_PATH = Path(__file__).parent.parent.parent.parent / "server_config.yaml"
 
 
 # Based on the ones supported by the uvicorn logger
-LogLevel = Literal[
-    "critical",
-    "error",
-    "warning",
-    "info",
-    "debug",
-    "trace",
+type LogLevel = Literal[
+    "CRITICAL",
+    "ERROR",
+    "WARNING",
+    "INFO",
+    "DEBUG",
 ]
+
+logging.getLogger("sketch-search").setLevel(logging.INFO)
 
 
 class SmtpConfig(BaseModel):

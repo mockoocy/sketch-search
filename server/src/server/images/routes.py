@@ -2,10 +2,17 @@ from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, Form, Response, UploadFile
+from pydantic import BaseModel
 
 from server.dependencies import image_service, indexing_service, server_config
 from server.images.models import ImageSearchQuery
 from server.index.models import IndexedImage
+
+
+class ListImagesResponse(BaseModel):
+    images: list[IndexedImage]
+    total: int
+
 
 DEFAULT_QUERY = ImageSearchQuery()
 
@@ -18,11 +25,13 @@ images_router = APIRouter(
 @images_router.get("/")
 async def list_images(
     image_service: image_service,
+    indexing_service: indexing_service,
     query: ImageSearchQuery = DEFAULT_QUERY,
-) -> dict[str, list[IndexedImage]]:
-    return {
-        "images": image_service.query_images(query),
-    }
+) -> ListImagesResponse:
+    return ListImagesResponse(
+        images=image_service.query_images(query),
+        total=indexing_service.get_collection_size(),
+    )
 
 
 @images_router.get("/similarity-search/")

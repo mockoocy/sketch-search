@@ -86,9 +86,9 @@ def test_list_images_with_query(test_client: TestClient) -> None:
         params={
             "page": 2,
             "items_per_page": 5,
-            "order.by": "name",
-            "order.direction": "ascending",
-            "filters.name_contains": "sample",
+            "order_by": "name",
+            "direction": "ascending",
+            "name_contains": "sample",
         },
     )
     assert response.status_code == 200

@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Any
 
-from sqlmodel import Session, select
+from sqlmodel import Session, col, func, select
 
 from server.images.models import ImageSearchQuery
 from server.index.models import Embedding, IndexedImage
@@ -68,25 +68,25 @@ class PgVectorIndexedImageRepository:
 
     def query_images(self, query: ImageSearchQuery) -> list[IndexedImage]:
         conditions = list[bool]()  # not really bool, but sqlmodel expression
-        if query.filters.name_contains:
+        if query.name_contains:
             conditions.append(
                 IndexedImage.user_visible_name.ilike(
-                    f"%{query.filters.name_contains}%",
+                    f"%{query.name_contains}%",
                 ),
             )
-        if query.filters.created_min:
-            conditions.append(IndexedImage.created_at >= query.filters.created_min)
-        if query.filters.created_max:
-            conditions.append(IndexedImage.created_at <= query.filters.created_max)
-        if query.filters.modified_min:
-            conditions.append(IndexedImage.modified_at >= query.filters.modified_min)
-        if query.filters.modified_max:
-            conditions.append(IndexedImage.modified_at <= query.filters.modified_max)
+        if query.created_min:
+            conditions.append(IndexedImage.created_at >= query.created_min)
+        if query.created_max:
+            conditions.append(IndexedImage.created_at <= query.created_max)
+        if query.modified_min:
+            conditions.append(IndexedImage.modified_at >= query.modified_min)
+        if query.modified_max:
+            conditions.append(IndexedImage.modified_at <= query.modified_max)
 
-        if query.order.direction == "descending":
-            ordering = _COL_QUERY_MAP[query.order.by].desc()
+        if query.direction == "descending":
+            ordering = _COL_QUERY_MAP[query.order_by].desc()
         else:
-            ordering = _COL_QUERY_MAP[query.order.by].asc()
+            ordering = _COL_QUERY_MAP[query.order_by].asc()
         stmt = (
             select(IndexedImage)
             .where(*conditions)
@@ -94,5 +94,9 @@ class PgVectorIndexedImageRepository:
             .offset((query.page - 1) * query.items_per_page)
             .limit(query.items_per_page)
         )
-
         return list(self._db_session.exec(stmt).all())
+
+    def get_total_images_count(self) -> int:
+        """Get the total number of indexed images in the repository."""
+        statement = select(func.count(col(IndexedImage.id)))
+        return self._db_session.exec(statement).one()

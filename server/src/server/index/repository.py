@@ -37,3 +37,7 @@ class IndexedImageRepository(Protocol):
     def query_images(self, query: ImageSearchQuery) -> list[IndexedImage]:
         """Query images based on the provided search query."""
         ...
+
+    def get_total_images_count(self) -> int:
+        """Get the total number of indexed images in the repository."""
+        ...

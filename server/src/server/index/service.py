@@ -14,3 +14,7 @@ class IndexingService(Protocol):
     def move_image(self, old_path: Path, new_path: Path) -> None:
         """Update the path of an image in the index."""
         ...
+
+    def get_collection_size(self) -> int:
+        """Get the total number of indexed images in the collection."""
+        ...
