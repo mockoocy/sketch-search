@@ -105,6 +105,7 @@ class ServerConfig(BaseSettings):
     # ge 1024, because occupying well-known ports is cringe
     port: int = Field(default=8000, ge=1024, le=65535)
     log_level: LogLevel = Field(default="info")
+    dev: bool = Field(default=False)
     auth: AuthConfig = Field(default_factory=lambda: NoAuthConfig())
     session: SessionConfig = Field(default_factory=lambda: SessionConfig())
     watcher: WatcherConfig = Field(

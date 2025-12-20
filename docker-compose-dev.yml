@@ -1,0 +1,42 @@
+services:
+  db:
+    image: pgvector/pgvector:pg18-trixie
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: db
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./tmp/db-data:/var/lib/postgresql
+  server:
+    build: .
+    restart: always
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+    environment:
+      SERVER__DATABASE__DATABASE: db
+      SERVER__DATABASE__USER: postgres
+      SERVER__DATABASE__PASSWORD: password
+      SERVER__DATABASE__HOST: db
+      SERVER__DATABASE__PORT: "5432"
+      SERVER__DEV: "true"
+      SERVER__WATCHER__WATCHED_DIRECTORY: /images/
+    volumes:
+      - ./server:/app/server
+      - ./sktr:/app/sktr
+      - ./gallery_example:/images
+
+  ui:
+    build: ./ui
+    restart: always
+    ports:
+      - "5173:5173"
+    depends_on:
+      - server
+    volumes:
+      - ./ui/src:/app/src
+      - ./ui/public:/app/public
