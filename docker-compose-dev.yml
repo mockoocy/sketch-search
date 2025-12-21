@@ -23,6 +23,7 @@ services:
       SERVER__DATABASE__PORT: "5432"
       SERVER__DEV: "true"
       SERVER__WATCHER__WATCHED_DIRECTORY: /images/
+      SERVER__THUMBNAIL__THUMBNAIL_DIRECTORY: /thumbnails/
       SERVER__LOG_LEVEL: DEBUG
       SERVER__HOST: "0.0.0.0"
       SERVER__PORT: "8000"
@@ -30,6 +31,7 @@ services:
       - ./server:/app/server
       - ./sktr:/app/sktr
       - ./gallery_example:/images
+      - ./thumbnails:/thumbnails
 
   ui:
     build: ./ui

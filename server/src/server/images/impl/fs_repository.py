@@ -4,6 +4,7 @@ from server.images.errors import (
     ImageFormatError,
     InvalidFsAccessError,
 )
+from server.logger import app_logger
 
 IMG_EXTENSIONS = ["jpg", "jpeg", "png", "webp", "gif"]
 
@@ -16,6 +17,7 @@ class FsImageRepository:
 
         full_path.parent.mkdir(parents=True, exist_ok=True)
         full_path.write_bytes(image)
+        app_logger.info("Wrote image to %s", full_path)
 
     def delete_file(self, full_path: Path) -> None:
         if full_path.exists():
@@ -33,3 +35,9 @@ class FsImageRepository:
         for ext in IMG_EXTENSIONS:
             files.extend(base_dir.glob(f"{pattern}.{ext}"))
         return files
+
+    def read_file(self, full_path: Path) -> bytes:
+        if not full_path.exists() or not full_path.is_file():
+            err_msg = f"File does not exist: {full_path}"
+            raise InvalidFsAccessError(err_msg)
+        return full_path.read_bytes()

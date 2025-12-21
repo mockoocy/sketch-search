@@ -1,20 +1,21 @@
+import io
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import APIRouter, Form, Response, UploadFile
+from fastapi import APIRouter, Depends, Form, Response, UploadFile
 from pydantic import BaseModel
 
 from server.dependencies import image_service, indexing_service, server_config
+from server.images.errors import ImageNotFoundError
 from server.images.models import ImageSearchQuery
 from server.index.models import IndexedImage
+from server.logger import app_logger
 
 
 class ListImagesResponse(BaseModel):
     images: list[IndexedImage]
     total: int
 
-
-DEFAULT_QUERY = ImageSearchQuery()
 
 images_router = APIRouter(
     prefix="/api/images",
@@ -26,7 +27,7 @@ images_router = APIRouter(
 async def list_images(
     image_service: image_service,
     indexing_service: indexing_service,
-    query: ImageSearchQuery = DEFAULT_QUERY,
+    query: Annotated[ImageSearchQuery, Depends()],
 ) -> ListImagesResponse:
     return ListImagesResponse(
         images=image_service.query_images(query),
@@ -86,3 +87,25 @@ async def delete_image(
 ) -> dict[str, str]:
     image_service.remove_image(image_id)
     return {"status": "success"}
+
+
+@images_router.get("/{image_id}/thumbnail/")
+async def get_image_thumbnail(
+    image_id: int,
+    image_service: image_service,
+    response: Response,
+) -> Response:
+    try:
+        thumbnail = image_service.get_thumbnail_for_image(image_id)
+    except ImageNotFoundError:
+        response.status_code = 404
+        return Response(content=b"", media_type="image/png")
+    image_format = thumbnail.format if thumbnail.format else "JPEG"
+    app_logger.info(f"Serving thumbnail for image {image_id} in format {image_format}")
+    app_logger.info(f"Thumbnail size: {thumbnail.size}, mode: {thumbnail.mode}")
+    with io.BytesIO() as output:
+        thumbnail.save(output, format=image_format)
+        return Response(
+            content=output.getvalue(),
+            media_type=f"image/{image_format.lower()}",
+        )

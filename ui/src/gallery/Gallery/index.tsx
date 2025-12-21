@@ -1,9 +1,10 @@
+import { ThumbnailCell } from '@/gallery/Gallery/ThumbnailCell'
 import { useListImages } from '@/gallery/hooks'
 import { imageSearchQuerySchema, type ImageSearchQuery, type IndexedImage } from '@/gallery/schema'
 import { Card, CardContent, CardHeader, CardTitle } from '@/general/components/card'
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/general/components/pagination'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/general/components/table'
-import { getCoreRowModel, useReactTable, type ColumnDef, type SortingState } from '@tanstack/react-table'
+import { flexRender, getCoreRowModel, useReactTable, type ColumnDef, type SortingState } from '@tanstack/react-table'
 import { ArrowDownNarrowWide, ArrowUpNarrowWide } from 'lucide-react'
 import { useState } from 'react'
 
@@ -28,10 +29,10 @@ function buildPageItems(page: number, totalPages: number) {
 
 const columns: ColumnDef<IndexedImage>[] = [
   {
-    id: "name",
-    accessorKey: "user_visible_name",
-    header: "Name",
-    cell: (info) => (info.getValue() as string | null) ?? "-",
+    id: "user_visible_name",
+    header: "Image",
+    accessorFn: (row) => row.user_visible_name,
+    cell: ({row}) =>  <ThumbnailCell image={row.original} />,
   },
   {
     accessorKey: "created_at",
@@ -57,7 +58,7 @@ const ITEMS_PER_PAGE = 12
 export function Gallery() {
   const [page, setPage] = useState(1)
   const [sorting, setSorting] = useState<SortingState>([
-    { id: "modified_at", desc: true },
+    { id: "user_visible_name", desc: true },
   ])
   const orderBy = (sorting[0]?.id ?? "modified_at") as ImageSearchQuery["order_by"]
   const direction = (sorting[0]?.desc ? "descending" : "ascending") as ImageSearchQuery["direction"]
@@ -93,6 +94,7 @@ export function Gallery() {
     onSortingChange: (updater) => {
       setPage(1);
       setSorting(prev => {
+        console.log({prev, updater});
         if (typeof  updater === "function") {
           return updater(prev);
         }
@@ -112,7 +114,7 @@ export function Gallery() {
 
       <CardContent className="space-y-4">
         <div className="rounded-md border">
-          <Table>
+          <Table className="table-fixed w-full">
             <TableHeader>
               {table.getHeaderGroups().map(headerGroup => (
                 <TableRow key={headerGroup.id}>
@@ -123,7 +125,7 @@ export function Gallery() {
                       className="cursor-pointer select-none"
                     >
                       <div className="flex items-center gap-2">
-                      {header.column.columnDef.header as string}
+                      {flexRender(header.column.columnDef.header, header.getContext())}
                       {header.column.getIsSorted() === "asc" && <ArrowUpNarrowWide />}
                       {header.column.getIsSorted() === "desc" && <ArrowDownNarrowWide />}
                       </div>
@@ -151,7 +153,7 @@ export function Gallery() {
                   <TableRow key={row.id}>
                     {row.getVisibleCells().map(cell => (
                       <TableCell key={cell.id}>
-                        {cell.renderValue() as string}
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
                       </TableCell>
                     ))}
                   </TableRow>

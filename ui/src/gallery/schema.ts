@@ -4,7 +4,7 @@ import { z } from "zod"
 export const imageSearchQuerySchema = z.object({
   page: z.number().int().min(1).default(1),
   items_per_page: z.number().int().min(1).max(50).default(10),
-  order_by: z.enum(["created_at", "modified_at", "name"]),
+  order_by: z.enum(["created_at", "modified_at", "user_visible_name"]),
   direction: z.enum(["ascending", "descending"]),
   name_contains: z.string().min(1).optional(),
   created_min: z.iso.datetime().optional(),

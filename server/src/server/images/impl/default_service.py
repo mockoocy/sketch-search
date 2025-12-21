@@ -60,13 +60,30 @@ class DefaultImageService:
         watched_directory = Path(self._watcher_config.watched_directory).resolve()
         self._write_to(watched_directory, relative_path, image)
 
-        with BytesIO(image) as thumb_buffer:
+    def add_thumbnail_for_image(self, image_path: Path) -> None:
+        full_image_path = image_path.resolve()
+        image_bytes = full_image_path.read_bytes()
+        with BytesIO(image_bytes) as img_buffer:
+            img = Image.open(img_buffer)
+        try:
+            img.verify()
+        except Exception as ex:
+            err_msg = f"Image verification failed for file: {image_path}"
+            raise InvalidImageError(err_msg) from ex
+
+        with BytesIO(image_bytes) as thumb_buffer:
             thumbnail_img = Image.open(thumb_buffer)
             thumbnail_img.thumbnail(self._thumbnail_config.size)
             thumbnail_img.save(thumb_buffer, format=img.format)
             thumb_data = thumb_buffer.getvalue()
-        thumbnail_directory = Path(self._thumbnail_config.thumbnail_directory).resolve()
-        self._write_to(thumbnail_directory, relative_path, thumb_data)
+        thumb_path = self._resolve_thumbnail_path(full_image_path)
+        self._write_to(
+            Path(self._thumbnail_config.thumbnail_directory).resolve(),
+            thumb_path.relative_to(
+                Path(self._thumbnail_config.thumbnail_directory).resolve(),
+            ),
+            thumb_data,
+        )
 
     def remove_image(self, image_id: int) -> None:
         indexed_image = self._indexed_image_repository.get_image_by_id(image_id)
@@ -117,3 +134,14 @@ class DefaultImageService:
         ]
         app_logger.info(f"Found {len(unindexed_images)} unindexed images.")
         return unindexed_images
+
+    def get_thumbnail_for_image(self, image_id: int) -> Image.Image:
+        indexed_image = self._indexed_image_repository.get_image_by_id(image_id)
+        if not indexed_image:
+            err_msg = f"Indexed image with ID {image_id} not found."
+            raise ImageNotFoundError(err_msg)
+        img_path = Path(indexed_image.path).resolve()
+        thumb_path = self._resolve_thumbnail_path(img_path)
+        thumbnail_bytes = self._image_repository.read_file(thumb_path)
+        with BytesIO(thumbnail_bytes) as thumb_buffer:
+            return Image.open(thumb_buffer)

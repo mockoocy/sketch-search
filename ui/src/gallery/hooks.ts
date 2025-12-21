@@ -4,9 +4,8 @@ import { useQuery } from "@tanstack/react-query";
 
 
 export function useListImages(query: ImageSearchQuery) {
-  const queryObject =  useQuery({
+  return useQuery({
     queryKey: [ "images" , query],
     queryFn: () => listImages(query),
   });
-  return queryObject;
 }

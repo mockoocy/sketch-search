@@ -86,7 +86,7 @@ def test_list_images_with_query(test_client: TestClient) -> None:
         params={
             "page": 2,
             "items_per_page": 5,
-            "order_by": "name",
+            "order_by": "user_visible_name",
             "direction": "ascending",
             "name_contains": "sample",
         },

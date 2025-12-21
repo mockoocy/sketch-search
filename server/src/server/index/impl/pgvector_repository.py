@@ -5,11 +5,12 @@ from sqlmodel import Session, col, func, select
 
 from server.images.models import ImageSearchQuery
 from server.index.models import Embedding, IndexedImage
+from server.logger import app_logger
 
 _COL_QUERY_MAP: dict[str, Any] = {  # The typing for models is a bit wonky
     "created_at": IndexedImage.created_at,
     "modified_at": IndexedImage.modified_at,
-    "name": IndexedImage.user_visible_name,
+    "user_visible_name": IndexedImage.user_visible_name,
 }
 
 
@@ -94,6 +95,7 @@ class PgVectorIndexedImageRepository:
             .offset((query.page - 1) * query.items_per_page)
             .limit(query.items_per_page)
         )
+        app_logger.info(f"ordering by {query.order_by} {query.direction}")
         return list(self._db_session.exec(stmt).all())
 
     def get_total_images_count(self) -> int:

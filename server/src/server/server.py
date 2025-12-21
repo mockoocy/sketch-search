@@ -31,6 +31,7 @@ async def bootstrap_index(
     missing_images = image_service.get_unindexed_images()
     for path in missing_images:
         background_embedder.enqueue_file(path)
+        image_service.add_thumbnail_for_image(path)
 
 
 @asynccontextmanager
