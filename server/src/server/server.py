@@ -19,6 +19,7 @@ from server.index.impl.pgvector_repository import PgVectorIndexedImageRepository
 from server.index.registry import EmbedderRegistry
 from server.logger import app_logger
 from server.observer.background_embedder import BackgroundEmbedder
+from server.observer.routes import events_router
 from server.session.impl.default_service import DefaultSessionService
 from server.session.impl.sql_repository import SqlSessionRepository
 from server.user.impl.sql_repository import SqlUserRepository
@@ -28,10 +29,13 @@ async def bootstrap_index(
     image_service: ImageService,
     background_embedder: BackgroundEmbedder,
 ) -> None:
+    app_logger.info("Bootstrapping image index...")
+    image_service.clean_stale_indexed_images()
     missing_images = image_service.get_unindexed_images()
     for path in missing_images:
         background_embedder.enqueue_file(path)
         image_service.add_thumbnail_for_image(path)
+    app_logger.info("Image index bootstrapping complete.")
 
 
 @asynccontextmanager
@@ -75,6 +79,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     app.state.background_embedder = BackgroundEmbedder(
         config=app.state.config.watcher,
         indexing_service=app.state.indexing_service,
+        image_service=app.state.image_service,
         event_bus=app.state.event_bus,
     )
     app.state.background_embedder.start()
@@ -95,5 +100,6 @@ def create_app() -> FastAPI:
     if app.state.config.auth.kind == "otp":
         app.include_router(otp_router)
     app.include_router(images_router)
+    app.include_router(events_router)
 
     return app

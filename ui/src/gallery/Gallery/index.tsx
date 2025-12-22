@@ -1,13 +1,14 @@
 import { ThumbnailCell } from '@/gallery/Gallery/ThumbnailCell'
-import { useListImages } from '@/gallery/hooks'
+import { imageQueryKeys, useFsEvents, useListImages } from '@/gallery/hooks'
 import { imageSearchQuerySchema, type ImageSearchQuery, type IndexedImage } from '@/gallery/schema'
 import { Card, CardContent, CardHeader, CardTitle } from '@/general/components/card'
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/general/components/pagination'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/general/components/table'
+import { useQueryClient } from '@tanstack/react-query'
 import { flexRender, getCoreRowModel, useReactTable, type ColumnDef, type SortingState } from '@tanstack/react-table'
 import { ArrowDownNarrowWide, ArrowUpNarrowWide } from 'lucide-react'
 import { useState } from 'react'
-
+import { toast } from 'sonner'
 
 function buildPageItems(page: number, totalPages: number) {
   if (totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i + 1)
@@ -26,6 +27,7 @@ function buildPageItems(page: number, totalPages: number) {
   items.push(totalPages)
   return items
 }
+
 
 const columns: ColumnDef<IndexedImage>[] = [
   {
@@ -62,7 +64,25 @@ export function Gallery() {
   ])
   const orderBy = (sorting[0]?.id ?? "modified_at") as ImageSearchQuery["order_by"]
   const direction = (sorting[0]?.desc ? "descending" : "ascending") as ImageSearchQuery["direction"]
-
+  const queryClient = useQueryClient()
+  useFsEvents({
+    onCreate: (event) => {
+      queryClient.invalidateQueries({queryKey: imageQueryKeys.all})
+      toast.success(`File created: ${event.path}`)
+    },
+    onDelete: (event) => {
+      queryClient.invalidateQueries({queryKey: imageQueryKeys.all})
+      toast.success(`File deleted: ${event.path}`)
+    },
+    onModify: (event) => {
+      queryClient.invalidateQueries({queryKey: imageQueryKeys.all})
+      toast.success(`File modified: ${event.path}`)
+    },
+    onMove: (event) => {
+      queryClient.invalidateQueries({queryKey: imageQueryKeys.all})
+      toast.success(`File moved: from ${event.old_path} to ${event.new_path}`)
+    },
+  })
 
   const query = imageSearchQuerySchema.parse({
       page,
@@ -105,7 +125,6 @@ export function Gallery() {
       sorting,
     },
   })
-
   return (
     <Card className="w-full">
       <CardHeader>

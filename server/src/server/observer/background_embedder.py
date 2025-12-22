@@ -1,13 +1,21 @@
 import asyncio
 from pathlib import Path
 
+from PIL import Image
 from watchdog.observers import Observer
 from watchdog.observers.api import BaseObserver
 
 from server.config.models import WatcherConfig
 from server.events.event_bus import EventBus
-from server.events.events import FileCreatedEvent
+from server.events.events import (
+    FileCreatedEvent,
+    FileDeletedEvent,
+    FileModifiedEvent,
+    FileMovedEvent,
+)
+from server.images.service import ImageService
 from server.index.service import IndexingService
+from server.index.utils import create_content_hash
 from server.logger import app_logger
 from server.observer.fs_observer import ImageWatcherHandler
 
@@ -19,6 +27,7 @@ class BackgroundEmbedder:
         self,
         config: WatcherConfig,
         indexing_service: IndexingService,
+        image_service: ImageService,
         event_bus: EventBus,
     ) -> None:
         self._queue = asyncio.Queue[Path]()
@@ -26,13 +35,52 @@ class BackgroundEmbedder:
         self._worker_task: asyncio.Task[None] | None = None
         self._config = config
         self._indexing_service = indexing_service
+        self._image_service = image_service
         self._event_bus = event_bus
 
         self._observer: BaseObserver = self._create_observer()
         self._event_bus.subscribe(
             FileCreatedEvent,
-            lambda event: self.enqueue_file(event.path),
+            self._on_file_created,
         )
+        self._event_bus.subscribe(
+            FileDeletedEvent,
+            self._on_file_deleted,
+        )
+        self._event_bus.subscribe(
+            FileModifiedEvent,
+            self._on_file_modified,
+        )
+        self._event_bus.subscribe(
+            FileMovedEvent,
+            self.on_file_moved,
+        )
+
+    def _on_file_created(self, event: FileCreatedEvent) -> None:
+        self.enqueue_file(event.path)
+
+    def _on_file_deleted(self, event: FileDeletedEvent) -> None:
+        self._indexing_service.remove_image(event.path)
+        self._image_service.remove_thumbnail_for_image(event.path)
+
+    def _on_file_modified(self, event: FileModifiedEvent) -> None:
+        original_indexed_image = self._image_service.get_image_by_path(event.path)
+        if original_indexed_image is None:
+            self.enqueue_file(event.path)
+            return
+        original_content_hash = original_indexed_image.content_hash
+        new_content_hash = create_content_hash(Image.open(event.path).convert("RGB"))
+        if original_content_hash != new_content_hash:
+            self._indexing_service.remove_image(event.path)
+            self.enqueue_file(event.path)
+            self._image_service.remove_thumbnail_for_image(event.path)
+
+    def on_file_moved(self, event: FileMovedEvent) -> None:
+        # Could consider checking if the file was modified during the move
+        # to avoid unnecessary re-embedding.
+        self._indexing_service.remove_image(event.old_path)
+        self._image_service.remove_thumbnail_for_image(event.old_path)
+        self.enqueue_file(event.new_path)
 
     def _create_observer(self) -> BaseObserver:
         observer = Observer()
@@ -83,3 +131,7 @@ class BackgroundEmbedder:
             self._observer.join()
         if self._worker_task:
             self._worker_task.cancel()
+        self._event_bus.unsubscribe(
+            FileCreatedEvent,
+            self._on_file_created,
+        )

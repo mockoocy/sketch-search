@@ -25,7 +25,14 @@ class PgVectorIndexedImageRepository:
         """Add multiple image embeddings to the repository."""
         for image in images:
             self._db_session.add(image)
-        self._db_session.commit()
+        try:
+            self._db_session.commit()
+        except Exception as ex:
+            app_logger.error(f"Failed to add images: {ex}")
+            self._db_session.rollback()
+            raise
+        else:
+            app_logger.info(f"Added {len(images)} images to the repository.")
 
     def delete_image_by_path(self, image_path: Path) -> None:
         """Delete an image embedding from the repository by its ID."""

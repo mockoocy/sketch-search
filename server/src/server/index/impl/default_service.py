@@ -19,27 +19,26 @@ class DefaultIndexingService:
     def embed_images(self, image_paths: list[Path]) -> None:
         """Embed a batch of images located at the given paths into the index."""
 
-        image_pil = [Image.open(path).convert("RGB") for path in image_paths]
+        images_pil = [Image.open(path).convert("RGB") for path in image_paths]
         images_numpy = np.array(
             [
                 np.array(img.resize((224, 224)), dtype=np.float32) / 255.0
-                for img in image_pil
+                for img in images_pil
             ],
             dtype=np.float32,
         )
 
         embeddings = self._embedder.embed(images_numpy)
         images: list[IndexedImage] = []
-        for path, embedding, image_bytes in zip(
+        for path, embedding, image_pil in zip(
             image_paths,
             embeddings,
-            images_numpy,
-            strict=False,
+            images_pil,
         ):
             file_stats = path.stat()
             created_at = datetime.fromtimestamp(file_stats.st_ctime, tz=UTC)
             modified_at = datetime.fromtimestamp(file_stats.st_mtime, tz=UTC)
-            content_hash = create_content_hash(image_bytes)
+            content_hash = create_content_hash(image_pil)
             image = IndexedImage(
                 path=str(path),
                 embedding=np.array(embedding, dtype=np.float32),

@@ -18,6 +18,14 @@ class EventBus:
     ) -> None:
         self._subscribers[event_type].append(cast("EventHandler[Event]", handler))
 
+    def unsubscribe[TEvent: Event](
+        self,
+        event_type: type[TEvent],
+        handler: EventHandler[TEvent],
+    ) -> None:
+        if event_type in self._subscribers:
+            self._subscribers[event_type].remove(cast("EventHandler[Event]", handler))
+
     def publish(self, event: Event) -> None:
         event_type = type(event)
         if event_type in self._subscribers:
