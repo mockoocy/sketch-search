@@ -2,7 +2,11 @@ import { FiltersBar } from "@/gallery/Gallery/FiltersBar";
 import { ImagesTable } from "@/gallery/Gallery/ImagesTable";
 import { PAGE_SIZES } from "@/gallery/Gallery/ImagesTablePagination";
 import { queryReducer } from "@/gallery/Gallery/queryReducer";
-import { imageQueryKeys, useFsEvents } from "@/gallery/hooks";
+import {
+  imageQueryKeys,
+  useFsEvents,
+  useSimilaritySearch,
+} from "@/gallery/hooks";
 import { type Filters, type ImageSearchQuery } from "@/gallery/schema";
 import {
   Card,
@@ -10,6 +14,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/general/components/card";
+import { SketchSearchDialog } from "@/SketchCanvas/SketchSearchDialog";
 import { useQueryClient } from "@tanstack/react-query";
 import type { SortingState } from "@tanstack/react-table";
 import { useReducer } from "react";
@@ -44,9 +49,9 @@ export function Gallery() {
     direction: "descending",
   });
 
-  const onFilterSubmit = (filters: Filters) => {
-    dispatch({ type: "setFilters", filters });
-  };
+  const { data, mutate: similaritySearch } = useSimilaritySearch();
+
+  console.log({ data });
 
   const queryClient = useQueryClient();
   useFsEvents({
@@ -68,6 +73,10 @@ export function Gallery() {
     },
   });
 
+  const onFilterSubmit = (filters: Filters) => {
+    dispatch({ type: "setFilters", filters });
+  };
+
   const onItemsPerPageChange = (items_per_page: number) => {
     dispatch({ type: "setItemsPerPage", items_per_page });
   };
@@ -76,6 +85,11 @@ export function Gallery() {
     <Card className="w-full">
       <CardHeader>
         <CardTitle>Images</CardTitle>
+        <SketchSearchDialog
+          onSketchSubmit={(blob) => {
+            similaritySearch({ image: blob, topK: 10, query });
+          }}
+        />
       </CardHeader>
 
       <CardContent className="space-y-4">

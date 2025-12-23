@@ -36,6 +36,8 @@ class SktrEmbedder:
 
     def embed(self, images: npt.NDArray[np.float32]) -> Embedding:
         app_logger.info("Embedding %d images using SKTR embedder...", len(images))
+        if len(images.shape) == 3:
+            images = images[np.newaxis, ...]
         images_torch = torch.from_numpy(images).float().permute(0, 3, 1, 2)
         embedding = self.model.embed_photo(images_torch)
         return embedding.cpu().detach().numpy()

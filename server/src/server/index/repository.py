@@ -22,6 +22,7 @@ class IndexedImageRepository(Protocol):
         self,
         embedding: Embedding,
         k: int,
+        query: ImageSearchQuery,
     ) -> list[IndexedImage]:
         """Retrieve the k-nearest images to the given image embedding."""
         ...

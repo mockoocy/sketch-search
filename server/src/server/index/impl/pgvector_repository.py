@@ -21,6 +21,22 @@ class PgVectorIndexedImageRepository:
     ) -> None:
         self._db_session = db_session
 
+    def _build_conditions(self, query: ImageSearchQuery) -> list[bool]:
+        conditions = list[bool]()  # not really bool, but sqlmodel expression
+        if query.name_contains:
+            conditions.append(
+                IndexedImage.user_visible_name.ilike(f"%{query.name_contains}%"),
+            )
+        if query.created_min:
+            conditions.append(IndexedImage.created_at >= query.created_min)
+        if query.created_max:
+            conditions.append(IndexedImage.created_at <= query.created_max)
+        if query.modified_min:
+            conditions.append(IndexedImage.modified_at >= query.modified_min)
+        if query.modified_max:
+            conditions.append(IndexedImage.modified_at <= query.modified_max)
+        return conditions
+
     def add_images(self, images: list[IndexedImage]) -> None:
         """Add multiple image embeddings to the repository."""
         for image in images:
@@ -50,19 +66,26 @@ class PgVectorIndexedImageRepository:
         self,
         embedding: Embedding,
         k: int,
+        search_query: ImageSearchQuery,
     ) -> list[IndexedImage]:
         """Retrieve the k-nearest images to the given image embedding."""
-        query = (
-            select(
-                IndexedImage,
-            )
-            .order_by(
-                IndexedImage.embedding.cosine_distance(embedding),
-            )
-            .limit(k)
+        conditions = self._build_conditions(search_query)
+
+        dist = IndexedImage.embedding.cosine_distance(embedding).label("distance")
+
+        top_stmt = (
+            select(IndexedImage.id, dist).where(*conditions).order_by(dist).limit(k)
+        ).subquery()
+
+        page_stmt = (
+            select(IndexedImage)
+            .join(top_stmt, IndexedImage.id == top_stmt.c.id)
+            .order_by(top_stmt.c.distance)
+            .offset((search_query.page - 1) * search_query.items_per_page)
+            .limit(search_query.items_per_page)
         )
 
-        return list(self._db_session.exec(query).all())
+        return list(self._db_session.exec(page_stmt).all())
 
     def get_image_by_path(self, image_path: Path) -> IndexedImage | None:
         """Retrieve an image embedding from the repository by its path."""
@@ -75,22 +98,7 @@ class PgVectorIndexedImageRepository:
         return self._db_session.exec(statement).first()
 
     def query_images(self, query: ImageSearchQuery) -> list[IndexedImage]:
-        conditions = list[bool]()  # not really bool, but sqlmodel expression
-        if query.name_contains:
-            conditions.append(
-                IndexedImage.user_visible_name.ilike(
-                    f"%{query.name_contains}%",
-                ),
-            )
-        if query.created_min:
-            conditions.append(IndexedImage.created_at >= query.created_min)
-        if query.created_max:
-            conditions.append(IndexedImage.created_at <= query.created_max)
-        if query.modified_min:
-            conditions.append(IndexedImage.modified_at >= query.modified_min)
-        if query.modified_max:
-            conditions.append(IndexedImage.modified_at <= query.modified_max)
-
+        conditions = self._build_conditions(query)
         if query.direction == "descending":
             ordering = _COL_QUERY_MAP[query.order_by].desc()
         else:

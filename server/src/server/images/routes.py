@@ -3,7 +3,8 @@ from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Form, Response, UploadFile
-from pydantic import BaseModel
+from PIL import Image
+from pydantic import BaseModel, TypeAdapter
 
 from server.dependencies import image_service, indexing_service, server_config
 from server.images.models import ImageSearchQuery
@@ -11,9 +12,9 @@ from server.index.models import IndexedImage
 from server.logger import app_logger
 
 
-class SimilaritySearchData(BaseModel):
-    image: bytes
+class SimilaritySearchFormData(BaseModel):
     top_k: int
+    query: ImageSearchQuery
 
 
 class ListImagesResponse(BaseModel):
@@ -39,13 +40,18 @@ async def list_images(
     )
 
 
-@images_router.get("/similarity-search/")
+@images_router.post("/similarity-search/")
 async def similarity_search(
-    data: Annotated[SimilaritySearchData, Depends()],
     image_service: image_service,
+    image: UploadFile,
+    top_k: Annotated[int, Form(...)],
+    query_json: Annotated[str, Form(...)],
 ) -> dict[str, list[IndexedImage]]:
+    image_bytes = await image.read()
+    image_pil = Image.open(io.BytesIO(image_bytes))
+    query = TypeAdapter(ImageSearchQuery).validate_json(query_json)
     return {
-        "images": image_service.similarity_search(data.image, data.top_k),
+        "images": image_service.similarity_search(image_pil, top_k, query),
     }
 
 

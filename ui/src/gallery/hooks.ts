@@ -1,6 +1,12 @@
-import { listImages, sseFsEventsClient, type FsEvent } from "@/gallery/api";
+import {
+  listImages,
+  similaritySearch,
+  sseFsEventsClient,
+  type FsEvent,
+  type SimilaritySearchInput,
+} from "@/gallery/api";
 import type { ImageSearchQuery } from "@/gallery/schema";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useEffect } from "react";
 
 export const imageQueryKeys = {
@@ -56,4 +62,10 @@ export function useFsEvents({
       sseFsEventsClient.release();
     };
   }, [onCreate, onDelete, onModify, onMove]);
+}
+
+export function useSimilaritySearch() {
+  return useMutation({
+    mutationFn: (input: SimilaritySearchInput) => similaritySearch(input),
+  });
 }

@@ -1,6 +1,7 @@
 from io import BytesIO
 from pathlib import Path
 
+import numpy as np
 from PIL import Image
 
 from server.config.models import ThumbnailConfig, WatcherConfig
@@ -103,9 +104,19 @@ class DefaultImageService:
     def query_images(self, query: ImageSearchQuery) -> list[IndexedImage]:
         return self._indexed_image_repository.query_images(query)
 
-    def similarity_search(self, image: bytes, top_k: int) -> list[IndexedImage]:
-        embedding = self._embedder.embed([image])[0]
-        return self._indexed_image_repository.get_k_nearest_images(embedding, top_k)
+    def similarity_search(
+        self,
+        image: Image.Image,
+        top_k: int,
+        query: ImageSearchQuery | None = None,
+    ) -> list[IndexedImage]:
+        image_numpy = np.array(image.convert("RGB").resize((224, 224)))
+        embedding = self._embedder.embed(image_numpy)[0]
+        return self._indexed_image_repository.get_k_nearest_images(
+            embedding,
+            top_k,
+            query,
+        )
 
     def search_by_image(self, image_id: int, top_k: int) -> list[IndexedImage]:
         indexed_image = self._indexed_image_repository.get_image_by_id(image_id)

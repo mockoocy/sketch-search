@@ -17,7 +17,7 @@ export async function listImages(
   );
   url.search = new URLSearchParams(queryStrings).toString();
 
-  return await apiFetch<ListImagesData>({
+  return apiFetch<ListImagesData>({
     url,
     context: "List Images",
     method: "GET",
@@ -118,3 +118,28 @@ class SseClient {
 }
 
 export const sseFsEventsClient = new SseClient("/api/events");
+
+export type SimilaritySearchInput = {
+  image: Blob;
+  topK: number;
+  query: ImageSearchQuery;
+};
+
+export async function similaritySearch({
+  image,
+  topK,
+  query,
+}: SimilaritySearchInput) {
+  const formData = new FormData();
+  formData.append("image", image);
+  formData.append("top_k", topK.toString());
+  formData.append("query_json", JSON.stringify(query));
+  const data = await apiFetch<{ images: IndexedImage[] }>({
+    url: "/api/images/similarity-search",
+    context: "Similarity Search",
+    method: "POST",
+    body: formData,
+    credentials: "include",
+  });
+  return data.images;
+}
