@@ -1,5 +1,4 @@
-import { z } from "zod"
-
+import { z } from "zod";
 
 export const imageSearchQuerySchema = z.object({
   page: z.number().int().min(1).default(1),
@@ -11,15 +10,26 @@ export const imageSearchQuerySchema = z.object({
   created_max: z.iso.datetime().optional(),
   modified_min: z.iso.datetime().optional(),
   modified_max: z.iso.datetime().optional(),
-})
+});
 
-export type ImageSearchQueryInput = z.input<typeof imageSearchQuerySchema>
-export type ImageSearchQuery = z.output<typeof imageSearchQuerySchema>
+export type ImageSearchQueryInput = z.input<typeof imageSearchQuerySchema>;
+export type ImageSearchQuery = z.output<typeof imageSearchQuerySchema>;
 
 export type IndexedImage = {
-  id?: number
-  path: string
-  user_visible_name: string
-  created_at?: string
-  modified_at?: string
-}
+  id?: number;
+  path: string;
+  user_visible_name: string;
+  created_at?: string;
+  modified_at?: string;
+};
+
+// for some reason zod compiles date types to string
+// when using datetime(). So an extra type is needed.
+export type Filters = Pick<
+  ImageSearchQuery,
+  | "name_contains"
+  | "created_min"
+  | "created_max"
+  | "modified_min"
+  | "modified_max"
+>;

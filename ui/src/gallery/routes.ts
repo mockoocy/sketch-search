@@ -6,4 +6,4 @@ export const galleryRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/",
   component: Gallery,
-})
+});

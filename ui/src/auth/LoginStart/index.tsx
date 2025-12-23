@@ -1,12 +1,17 @@
-import { useStartOtp } from "@/auth/hooks"
-import { startOtpSchema, type StartOtpInput } from "@/auth/schema"
-import { Button } from "@/general/components/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/general/components/card"
-import { Input } from "@/general/components/input"
-import { Label } from "@/general/components/label"
-import { zodResolver } from "@hookform/resolvers/zod"
-import { useForm } from "react-hook-form"
-
+import { useStartOtp } from "@/auth/hooks";
+import { startOtpSchema, type StartOtpInput } from "@/auth/schema";
+import { Button } from "@/general/components/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/general/components/card";
+import { Input } from "@/general/components/input";
+import { Label } from "@/general/components/label";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
 
 export function LoginStart() {
   const {
@@ -16,13 +21,13 @@ export function LoginStart() {
   } = useForm<StartOtpInput>({
     resolver: zodResolver(startOtpSchema),
     mode: "onChange",
-  })
+  });
 
-  const { mutate } = useStartOtp()
+  const { mutate } = useStartOtp();
 
   const onSubmit = (data: StartOtpInput) => {
-    mutate(data)
-  }
+    mutate(data);
+  };
 
   return (
     <Card className="w-1/3">
@@ -46,5 +51,5 @@ export function LoginStart() {
         </form>
       </CardContent>
     </Card>
-  )
+  );
 }

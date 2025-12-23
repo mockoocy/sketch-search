@@ -11,6 +11,11 @@ from server.index.models import IndexedImage
 from server.logger import app_logger
 
 
+class SimilaritySearchData(BaseModel):
+    image: bytes
+    top_k: int
+
+
 class ListImagesResponse(BaseModel):
     images: list[IndexedImage]
     total: int
@@ -36,12 +41,11 @@ async def list_images(
 
 @images_router.get("/similarity-search/")
 async def similarity_search(
-    image: bytes,
-    top_k: int,
+    data: Annotated[SimilaritySearchData, Depends()],
     image_service: image_service,
 ) -> dict[str, list[IndexedImage]]:
     return {
-        "images": image_service.similarity_search(image, top_k),
+        "images": image_service.similarity_search(data.image, data.top_k),
     }
 
 

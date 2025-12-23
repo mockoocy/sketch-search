@@ -1,116 +1,120 @@
-import type { ImageSearchQuery, IndexedImage } from "@/gallery/schema"
-import { apiFetch } from "@/general/api"
+import type { ImageSearchQuery, IndexedImage } from "@/gallery/schema";
+import { apiFetch } from "@/general/api";
 
 type ListImagesData = {
-  images: IndexedImage[]
-  total: number
-}
+  images: IndexedImage[];
+  total: number;
+};
 
-export async function listImages(query: ImageSearchQuery): Promise<ListImagesData> {
-  const url = new URL("/api/images", window.location.origin)
+export async function listImages(
+  query: ImageSearchQuery,
+): Promise<ListImagesData> {
+  const url = new URL("/api/images", window.location.origin);
   const queryStrings = Object.fromEntries(
-    Object.entries(query).map(([key, value]) => [key, value?.toString() ?? ""])
-  )
-  url.search = new URLSearchParams(queryStrings).toString()
+    Object.entries(query)
+      .filter(([_, value]) => value !== undefined)
+      .map(([key, value]) => [key, value?.toString() ?? ""]),
+  );
+  url.search = new URLSearchParams(queryStrings).toString();
 
   return await apiFetch<ListImagesData>({
     url,
     context: "List Images",
     method: "GET",
     credentials: "include",
-  })
+  });
 }
-
 
 type FileCreatedEvent = {
-  path: string
-  created_at: string
-}
+  path: string;
+  created_at: string;
+};
 
 type FileDeletedEvent = {
-  path: string
-}
+  path: string;
+};
 
 type FileModifiedEvent = {
-  path: string
-  modified_at: string
-}
+  path: string;
+  modified_at: string;
+};
 
 type FileMovedEvent = {
-  old_path: string
-  new_path: string
-  moved_at: string
-}
+  old_path: string;
+  new_path: string;
+  moved_at: string;
+};
 
 export type FsEvent = {
-  FileCreatedEvent: FileCreatedEvent
-  FileDeletedEvent: FileDeletedEvent
-  FileModifiedEvent: FileModifiedEvent
-  FileMovedEvent: FileMovedEvent
-}
-
+  FileCreatedEvent: FileCreatedEvent;
+  FileDeletedEvent: FileDeletedEvent;
+  FileModifiedEvent: FileModifiedEvent;
+  FileMovedEvent: FileMovedEvent;
+};
 
 /**
  * Simple SSE client with reference counting
  * used to store event source across multiple hook calls.
  */
 class SseClient {
-  private source: EventSource | null = null
-  private listeners: {[Key in keyof FsEvent]: Set<(event: FsEvent[Key]) => void>} = {
+  private source: EventSource | null = null;
+  private listeners: {
+    [Key in keyof FsEvent]: Set<(event: FsEvent[Key]) => void>;
+  } = {
     FileCreatedEvent: new Set(),
     FileDeletedEvent: new Set(),
     FileModifiedEvent: new Set(),
     FileMovedEvent: new Set(),
-  }
-  private refCount = 0
-  private readonly url: string
+  };
+  private refCount = 0;
+  private readonly url: string;
 
   constructor(url: string) {
-    this.url = url
+    this.url = url;
   }
 
   private connect() {
-    if (this.source) return
+    if (this.source) return;
 
-    this.source = new EventSource(this.url)
+    this.source = new EventSource(this.url);
 
     this.source.onerror = (error) => {
-      console.error(error)
-    }
+      console.error(error);
+    };
+  }
 
-}
+  private disconnect() {
+    if (!this.source) return;
 
-  private disconnect(){
-    if (!this.source) return
-
-    this.source.close()
-    this.source = null
+    this.source.close();
+    this.source = null;
   }
 
   acquire() {
-    this.connect()
-    this.refCount++
+    this.connect();
+    this.refCount++;
   }
 
   release() {
-    this.refCount--
+    this.refCount--;
     if (this.refCount <= 0) {
-      this.disconnect()
+      this.disconnect();
     }
   }
-  addListener<TEvent extends keyof FsEvent>(type: TEvent, callback: (event: FsEvent[TEvent]) => void): () => void {
+  addListener<TEvent extends keyof FsEvent>(
+    type: TEvent,
+    callback: (event: FsEvent[TEvent]) => void,
+  ): () => void {
     this.source?.addEventListener(type, (event: MessageEvent) => {
-      const eventData: FsEvent[TEvent] = JSON.parse(event.data)
-      callback(eventData)
-    })
-    this.listeners[type].add(callback)
+      const eventData: FsEvent[TEvent] = JSON.parse(event.data);
+      callback(eventData);
+    });
+    this.listeners[type].add(callback);
 
     return () => {
-      this.listeners[type].delete(callback)
-    }
+      this.listeners[type].delete(callback);
+    };
   }
-
-
 }
 
-export const sseFsEventsClient = new SseClient("/api/events")
+export const sseFsEventsClient = new SseClient("/api/events");

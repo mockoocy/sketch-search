@@ -1,2 +1,0 @@
-SKiTteR
-SKaTteR

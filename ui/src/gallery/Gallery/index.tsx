@@ -1,130 +1,77 @@
-import { ThumbnailCell } from '@/gallery/Gallery/ThumbnailCell'
-import { imageQueryKeys, useFsEvents, useListImages } from '@/gallery/hooks'
-import { imageSearchQuerySchema, type ImageSearchQuery, type IndexedImage } from '@/gallery/schema'
-import { Card, CardContent, CardHeader, CardTitle } from '@/general/components/card'
-import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/general/components/pagination'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/general/components/table'
-import { useQueryClient } from '@tanstack/react-query'
-import { flexRender, getCoreRowModel, useReactTable, type ColumnDef, type SortingState } from '@tanstack/react-table'
-import { ArrowDownNarrowWide, ArrowUpNarrowWide } from 'lucide-react'
-import { useState } from 'react'
-import { toast } from 'sonner'
+import { FiltersBar } from "@/gallery/Gallery/FiltersBar";
+import { ImagesTable } from "@/gallery/Gallery/ImagesTable";
+import { PAGE_SIZES } from "@/gallery/Gallery/ImagesTablePagination";
+import { queryReducer } from "@/gallery/Gallery/queryReducer";
+import { imageQueryKeys, useFsEvents } from "@/gallery/hooks";
+import { type Filters, type ImageSearchQuery } from "@/gallery/schema";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/general/components/card";
+import { useQueryClient } from "@tanstack/react-query";
+import type { SortingState } from "@tanstack/react-table";
+import { useReducer } from "react";
+import { toast } from "sonner";
 
-function buildPageItems(page: number, totalPages: number) {
-  if (totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i + 1)
-
-  const items: Array<number | null> = [1]
-
-  const left = Math.max(2, page - 1)
-  const right = Math.min(totalPages - 1, page + 1)
-
-  if (left > 2) items.push(null)
-
-  for (let page = left; page <= right; page++) items.push(page)
-
-  if (right < totalPages - 1) items.push(null)
-
-  items.push(totalPages)
-  return items
+function imageOrderingToSorting(
+  order_by: ImageSearchQuery["order_by"],
+  direction: ImageSearchQuery["direction"],
+): SortingState {
+  return [
+    {
+      id: order_by,
+      desc: direction === "descending",
+    },
+  ];
+}
+function sortingToImageOrdering(sorting: SortingState): {
+  order_by: ImageSearchQuery["order_by"];
+  direction: ImageSearchQuery["direction"];
+} {
+  const sort = sorting[0];
+  const order_by = (sort?.id as ImageSearchQuery["order_by"]) || "created_at";
+  const direction = sort?.desc ? "descending" : "ascending";
+  return { order_by, direction };
 }
 
-
-const columns: ColumnDef<IndexedImage>[] = [
-  {
-    id: "user_visible_name",
-    header: "Image",
-    accessorFn: (row) => row.user_visible_name,
-    cell: ({row}) =>  <ThumbnailCell image={row.original} />,
-  },
-  {
-    accessorKey: "created_at",
-    header: "Created At",
-    cell: (info) => {
-      const v = info.getValue() as string | null
-      return v ? new Date(v).toLocaleString() : "-"
-    },
-  },
-  {
-    accessorKey: "modified_at",
-    header: "Modified At",
-    cell: (info) => {
-      const v = info.getValue() as string | null
-      return v ? new Date(v).toLocaleString() : "-"
-    },
-  },
-]
-
-const NAME_CONTAINS = "" // will be there later :)
-const ITEMS_PER_PAGE = 12
-
 export function Gallery() {
-  const [page, setPage] = useState(1)
-  const [sorting, setSorting] = useState<SortingState>([
-    { id: "user_visible_name", desc: true },
-  ])
-  const orderBy = (sorting[0]?.id ?? "modified_at") as ImageSearchQuery["order_by"]
-  const direction = (sorting[0]?.desc ? "descending" : "ascending") as ImageSearchQuery["direction"]
-  const queryClient = useQueryClient()
+  const [query, dispatch] = useReducer(queryReducer, {
+    page: 1,
+    items_per_page: PAGE_SIZES[0],
+    order_by: "created_at",
+    direction: "descending",
+  });
+
+  const onFilterSubmit = (filters: Filters) => {
+    dispatch({ type: "setFilters", filters });
+  };
+
+  const queryClient = useQueryClient();
   useFsEvents({
     onCreate: (event) => {
-      queryClient.invalidateQueries({queryKey: imageQueryKeys.all})
-      toast.success(`File created: ${event.path}`)
+      queryClient.invalidateQueries({ queryKey: imageQueryKeys.all });
+      toast.success(`File created: ${event.path}`);
     },
     onDelete: (event) => {
-      queryClient.invalidateQueries({queryKey: imageQueryKeys.all})
-      toast.success(`File deleted: ${event.path}`)
+      queryClient.invalidateQueries({ queryKey: imageQueryKeys.all });
+      toast.success(`File deleted: ${event.path}`);
     },
     onModify: (event) => {
-      queryClient.invalidateQueries({queryKey: imageQueryKeys.all})
-      toast.success(`File modified: ${event.path}`)
+      queryClient.invalidateQueries({ queryKey: imageQueryKeys.all });
+      toast.success(`File modified: ${event.path}`);
     },
     onMove: (event) => {
-      queryClient.invalidateQueries({queryKey: imageQueryKeys.all})
-      toast.success(`File moved: from ${event.old_path} to ${event.new_path}`)
+      queryClient.invalidateQueries({ queryKey: imageQueryKeys.all });
+      toast.success(`File moved: from ${event.old_path} to ${event.new_path}`);
     },
-  })
+  });
 
-  const query = imageSearchQuerySchema.parse({
-      page,
-      items_per_page: ITEMS_PER_PAGE,
-      order_by: orderBy,
-      direction,
-      name_contains: NAME_CONTAINS.trim() ? NAME_CONTAINS.trim() : undefined,
-    })
+  const onItemsPerPageChange = (items_per_page: number) => {
+    dispatch({ type: "setItemsPerPage", items_per_page });
+  };
 
-  const { data, isPending, isFetching } = useListImages(query)
-
-  const images = data?.images;
-  const total = data?.total;
-  const totalPages = total !== undefined ? Math.ceil(total / ITEMS_PER_PAGE) : undefined;
-
-  const canPrev = page > 1 && !isFetching;
-  const canNext = total !== undefined ? page * ITEMS_PER_PAGE < total && !isFetching : true;
-
-  const pageItems =
-    totalPages !== undefined ? buildPageItems(page, totalPages) : [page]
-
-  // eslint-disable-next-line react-hooks/incompatible-library
-  const table = useReactTable({
-    data: images ?? [],
-    columns: columns,
-    manualSorting: true,
-    manualPagination: true,
-    getCoreRowModel: getCoreRowModel(),
-    onSortingChange: (updater) => {
-      setPage(1);
-      setSorting(prev => {
-        console.log({prev, updater});
-        if (typeof  updater === "function") {
-          return updater(prev);
-        }
-        return updater;
-      });
-    },
-    state: {
-      sorting,
-    },
-  })
   return (
     <Card className="w-full">
       <CardHeader>
@@ -132,102 +79,31 @@ export function Gallery() {
       </CardHeader>
 
       <CardContent className="space-y-4">
-        <div className="rounded-md border">
-          <Table className="table-fixed w-full">
-            <TableHeader>
-              {table.getHeaderGroups().map(headerGroup => (
-                <TableRow key={headerGroup.id}>
-                  {headerGroup.headers.map(header => (
-                    <TableHead
-                      key={header.id}
-                      onClick={header.column.getToggleSortingHandler()}
-                      className="cursor-pointer select-none"
-                    >
-                      <div className="flex items-center gap-2">
-                      {flexRender(header.column.columnDef.header, header.getContext())}
-                      {header.column.getIsSorted() === "asc" && <ArrowUpNarrowWide />}
-                      {header.column.getIsSorted() === "desc" && <ArrowDownNarrowWide />}
-                      </div>
-                    </TableHead>
-                  ))}
-                </TableRow>
-              ))}
-            </TableHeader>
+        <FiltersBar onSubmit={onFilterSubmit} />
 
-            <TableBody>
-              {isPending ? (
-                <TableRow>
-                  <TableCell colSpan={columns.length}>
-                    Loading...
-                  </TableCell>
-                </TableRow>
-              ) : table.getRowModel().rows.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={columns.length}>
-                    No images
-                  </TableCell>
-                </TableRow>
-              ) : (
-                table.getRowModel().rows.map(row => (
-                  <TableRow key={row.id}>
-                    {row.getVisibleCells().map(cell => (
-                      <TableCell key={cell.id}>
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
-        <Pagination>
-          <PaginationContent>
-            <PaginationItem>
-              <PaginationPrevious
-                href="#"
-                aria-disabled={!canPrev}
-                onClick={(event) => {
-                  event.preventDefault()
-                  if (canPrev) setPage((p) => Math.max(1, p - 1))
-                }}
-              />
-            </PaginationItem>
-
-            {pageItems.map((page, pageIdx) =>
-              page === null ? (
-                <PaginationItem key={`e-${pageIdx}`}>
-                  <PaginationEllipsis />
-                </PaginationItem>
-              ) : (
-                <PaginationItem key={page}>
-                  <PaginationLink
-                    href="#"
-                    isActive={page === page}
-                    onClick={(e) => {
-                      e.preventDefault()
-                      if (!isFetching) setPage(page)
-                    }}
-                  >
-                    {page}
-                  </PaginationLink>
-                </PaginationItem>
-              ),
-            )}
-
-            <PaginationItem>
-              <PaginationNext
-                href="#"
-                aria-disabled={!canNext}
-                onClick={(event) => {
-                  event.preventDefault()
-                  if (canNext) setPage((p) => p + 1)
-                }}
-              />
-            </PaginationItem>
-          </PaginationContent>
-        </Pagination>
+        <ImagesTable
+          query={query}
+          onSortingChange={(updater) => {
+            dispatch({ type: "setPage", page: 1 });
+            if (typeof updater === "function") {
+              const currentSortingState = imageOrderingToSorting(
+                query.order_by,
+                query.direction,
+              );
+              const newSortingState = updater(currentSortingState);
+              dispatch({
+                type: "setSorting",
+                ...sortingToImageOrdering(newSortingState),
+              });
+              return newSortingState;
+            }
+            return updater;
+          }}
+          sorting={imageOrderingToSorting(query.order_by, query.direction)}
+          onPageChange={(page) => dispatch({ type: "setPage", page })}
+          onItemsPerPageChange={onItemsPerPageChange}
+        />
       </CardContent>
     </Card>
-  )
+  );
 }

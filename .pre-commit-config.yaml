@@ -36,5 +36,10 @@ repos:
         language: system
         pass_filenames: false
         types_or: [javascript, jsx, ts, tsx]
-
+      - id: prettier
+        name: prettier
+        entry: pnpm --prefix ui exec prettier . --write
+        language: system
+        pass_filenames: false
+        types_or: [javascript, jsx, ts, tsx]
 ...

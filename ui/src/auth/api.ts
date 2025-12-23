@@ -1,5 +1,5 @@
-import { apiFetch } from "@/general/api"
-import type { StartOtpInput, VerifyOtpInput } from "./schema"
+import { apiFetch } from "@/general/api";
+import type { StartOtpInput, VerifyOtpInput } from "./schema";
 
 export async function startOtp(input: StartOtpInput): Promise<void> {
   return apiFetch<void>({
@@ -11,7 +11,7 @@ export async function startOtp(input: StartOtpInput): Promise<void> {
     },
     body: JSON.stringify(input),
     credentials: "include",
-  })
+  });
 }
 
 export async function verifyOtp(input: VerifyOtpInput): Promise<void> {
@@ -24,5 +24,5 @@ export async function verifyOtp(input: VerifyOtpInput): Promise<void> {
     },
     body: JSON.stringify(input),
     credentials: "include",
-  })
+  });
 }
