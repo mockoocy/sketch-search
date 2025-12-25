@@ -14,14 +14,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/general/components/select";
+import { useGalleryStore } from "@/store";
 
 export type PaginationProps = {
-  page: number;
   itemsCount: number;
-  onPageChange: (page: number) => void;
-  itemsPerPage: number;
-  onItemsPerPageChange: (items_per_page: number) => void;
-  isPending?: boolean;
 };
 
 export const PAGE_SIZES = [12, 24, 48, 96] as const;
@@ -45,14 +41,14 @@ function buildPageItems(page: number, totalPages: number) {
   return items;
 }
 
-export function ImagesTablePagination({
-  page,
-  itemsCount,
-  onPageChange,
-  isPending,
-  itemsPerPage,
-  onItemsPerPageChange,
-}: PaginationProps) {
+export function ImagesTablePagination({ itemsCount }: PaginationProps) {
+  const page = useGalleryStore((state) => state.query.page);
+  const itemsPerPage = useGalleryStore((state) => state.query.items_per_page);
+  const onPageChange = useGalleryStore((state) => state.setPage);
+  const onItemsPerPageChange = useGalleryStore(
+    (state) => state.setItemsPerPage,
+  );
+
   const canPrev = page > 1;
   const totalPages = Math.ceil(itemsCount / itemsPerPage);
   const canNext = page < totalPages;
@@ -85,7 +81,7 @@ export function ImagesTablePagination({
                   isActive={page === page}
                   onClick={(event) => {
                     event.preventDefault();
-                    if (!isPending) onPageChange(page);
+                    onPageChange(page);
                   }}
                 >
                   {page}

@@ -46,13 +46,15 @@ async def similarity_search(
     image: UploadFile,
     top_k: Annotated[int, Form(...)],
     query_json: Annotated[str, Form(...)],
-) -> dict[str, list[IndexedImage]]:
+) -> ListImagesResponse:
     image_bytes = await image.read()
     image_pil = Image.open(io.BytesIO(image_bytes))
     query = TypeAdapter(ImageSearchQuery).validate_json(query_json)
-    return {
-        "images": image_service.similarity_search(image_pil, top_k, query),
-    }
+    images = image_service.similarity_search(image_pil, top_k, query)
+    return ListImagesResponse(
+        images=images,
+        total=len(images),
+    )
 
 
 @images_router.get("/search-by-image/")

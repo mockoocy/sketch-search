@@ -12,6 +12,7 @@ import {
   type Stroke,
   drawReducer,
 } from "@/SketchCanvas/drawReducer";
+import { useGalleryStore } from "@/store";
 
 export type SketchCanvasHandle = {
   clear: () => void;
@@ -131,6 +132,8 @@ export const SketchCanvas = forwardRef<
     redo: [],
   });
 
+  const clearSketch = useGalleryStore((state) => state.clearSketch);
+
   useImperativeHandle(
     ref,
     () => ({
@@ -140,6 +143,7 @@ export const SketchCanvas = forwardRef<
           redrawAll(canvasRef.current!.getContext("2d")!, width, height, []);
         }
         onCommit?.();
+        clearSketch();
       },
       undo: () => {
         dispatch({ type: "undo" });
@@ -178,7 +182,7 @@ export const SketchCanvas = forwardRef<
       },
       isEmpty: () => state.history.length === 0,
     }),
-    [onCommit, height, state.history, state.redo, width],
+    [onCommit, height, state.history, state.redo, width, clearSketch],
   );
 
   function onPointerDown(event: React.PointerEvent<HTMLCanvasElement>) {

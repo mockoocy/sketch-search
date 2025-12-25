@@ -134,12 +134,11 @@ export async function similaritySearch({
   formData.append("image", image);
   formData.append("top_k", topK.toString());
   formData.append("query_json", JSON.stringify(query));
-  const data = await apiFetch<{ images: IndexedImage[] }>({
+  return await apiFetch<ListImagesData>({
     url: "/api/images/similarity-search",
     context: "Similarity Search",
     method: "POST",
     body: formData,
     credentials: "include",
   });
-  return data.images;
 }

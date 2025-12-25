@@ -3,10 +3,9 @@ import {
   similaritySearch,
   sseFsEventsClient,
   type FsEvent,
-  type SimilaritySearchInput,
 } from "@/gallery/api";
 import type { ImageSearchQuery } from "@/gallery/schema";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useEffect } from "react";
 
 export const imageQueryKeys = {
@@ -14,14 +13,9 @@ export const imageQueryKeys = {
   lists: () => [...imageQueryKeys.all, "list"] as const,
   list: (query: ImageSearchQuery) =>
     [...imageQueryKeys.lists(), query] as const,
+  similaritySearch: (query: ImageSearchQuery, revision: number) =>
+    [...imageQueryKeys.list(query), "similarity", revision] as const,
 } as const;
-
-export function useListImages(query: ImageSearchQuery) {
-  return useQuery({
-    queryKey: imageQueryKeys.list(query),
-    queryFn: () => listImages(query),
-  });
-}
 
 export type UseFsEventsOptions = {
   onCreate: (event: FsEvent["FileCreatedEvent"]) => void;
@@ -64,8 +58,35 @@ export function useFsEvents({
   }, [onCreate, onDelete, onModify, onMove]);
 }
 
-export function useSimilaritySearch() {
-  return useMutation({
-    mutationFn: (input: SimilaritySearchInput) => similaritySearch(input),
-  });
+type UseSimilaritySearchOptions = {
+  searchType: "sketch";
+  sketch: Blob;
+  revision: number;
+  query: ImageSearchQuery;
+};
+
+type UseListImagesOptions = {
+  searchType: "plain";
+  query: ImageSearchQuery;
+};
+
+export type UseImageSearchOptions =
+  | UseListImagesOptions
+  | UseSimilaritySearchOptions;
+export function useImageSearch(options: UseImageSearchOptions) {
+  const queryKey =
+    options.searchType === "plain"
+      ? imageQueryKeys.list(options.query)
+      : imageQueryKeys.similaritySearch(options.query, options.revision);
+
+  const queryFn =
+    options.searchType === "plain"
+      ? () => listImages(options.query)
+      : () =>
+          similaritySearch({
+            image: options.sketch!,
+            topK: options.query.items_per_page,
+            query: options.query,
+          });
+  return useQuery({ queryKey, queryFn });
 }

@@ -1,23 +1,16 @@
 import { FiltersBar } from "@/gallery/Gallery/FiltersBar";
 import { ImagesTable } from "@/gallery/Gallery/ImagesTable";
-import { PAGE_SIZES } from "@/gallery/Gallery/ImagesTablePagination";
-import { queryReducer } from "@/gallery/Gallery/queryReducer";
 import {
   imageQueryKeys,
   useFsEvents,
-  useSimilaritySearch,
+  useImageSearch,
+  type UseImageSearchOptions,
 } from "@/gallery/hooks";
-import { type Filters, type ImageSearchQuery } from "@/gallery/schema";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/general/components/card";
-import { SketchSearchDialog } from "@/SketchCanvas/SketchSearchDialog";
+import { type ImageSearchQuery } from "@/gallery/schema";
+import { Card, CardContent } from "@/general/components/card";
+import { useGalleryStore } from "@/store";
 import { useQueryClient } from "@tanstack/react-query";
 import type { SortingState } from "@tanstack/react-table";
-import { useReducer } from "react";
 import { toast } from "sonner";
 
 function imageOrderingToSorting(
@@ -42,16 +35,22 @@ function sortingToImageOrdering(sorting: SortingState): {
 }
 
 export function Gallery() {
-  const [query, dispatch] = useReducer(queryReducer, {
-    page: 1,
-    items_per_page: PAGE_SIZES[0],
-    order_by: "created_at",
-    direction: "descending",
-  });
+  const sketch = useGalleryStore((state) => state.sketch);
+  const revision = useGalleryStore((state) => state.revision);
+  const query = useGalleryStore((state) => state.query);
+  const setFilters = useGalleryStore((state) => state.setFilters);
+  const setSorting = useGalleryStore((state) => state.setSorting);
 
-  const { data, mutate: similaritySearch } = useSimilaritySearch();
+  const searchOptions: UseImageSearchOptions = sketch
+    ? {
+        searchType: "sketch",
+        sketch,
+        query,
+        revision: revision,
+      }
+    : { searchType: "plain", query };
 
-  console.log({ data });
+  const { data } = useImageSearch(searchOptions);
 
   const queryClient = useQueryClient();
   useFsEvents({
@@ -73,49 +72,29 @@ export function Gallery() {
     },
   });
 
-  const onFilterSubmit = (filters: Filters) => {
-    dispatch({ type: "setFilters", filters });
-  };
-
-  const onItemsPerPageChange = (items_per_page: number) => {
-    dispatch({ type: "setItemsPerPage", items_per_page });
-  };
-
   return (
     <Card className="w-full">
-      <CardHeader>
-        <CardTitle>Images</CardTitle>
-        <SketchSearchDialog
-          onSketchSubmit={(blob) => {
-            similaritySearch({ image: blob, topK: 10, query });
-          }}
-        />
-      </CardHeader>
-
       <CardContent className="space-y-4">
-        <FiltersBar onSubmit={onFilterSubmit} />
+        <FiltersBar onSubmit={setFilters} />
 
         <ImagesTable
-          query={query}
+          images={data?.images || []}
+          gallerySize={data?.total || 0}
           onSortingChange={(updater) => {
-            dispatch({ type: "setPage", page: 1 });
             if (typeof updater === "function") {
               const currentSortingState = imageOrderingToSorting(
                 query.order_by,
                 query.direction,
               );
               const newSortingState = updater(currentSortingState);
-              dispatch({
-                type: "setSorting",
-                ...sortingToImageOrdering(newSortingState),
-              });
+              const { order_by, direction } =
+                sortingToImageOrdering(newSortingState);
+              setSorting(order_by, direction);
               return newSortingState;
             }
             return updater;
           }}
           sorting={imageOrderingToSorting(query.order_by, query.direction)}
-          onPageChange={(page) => dispatch({ type: "setPage", page })}
-          onItemsPerPageChange={onItemsPerPageChange}
         />
       </CardContent>
     </Card>

@@ -7,20 +7,16 @@ import {
   DialogTrigger,
 } from "@/general/components/dialog";
 import { SketchCanvas, type SketchCanvasHandle } from "@/SketchCanvas";
+import { useGalleryStore } from "@/store";
 import { useRef } from "react";
 
-type SketchSearchDialogProps = {
-  onSketchSubmit: (blob: Blob) => void;
-};
-
-export function SketchSearchDialog({
-  onSketchSubmit,
-}: SketchSearchDialogProps) {
+export function SketchSearchDialog() {
   const ref = useRef<SketchCanvasHandle | null>(null);
+  const setSketch = useGalleryStore((state) => state.setSketch);
 
   return (
     <Dialog>
-      <DialogTrigger asChild>
+      <DialogTrigger asChild className="bg-input/30">
         <Button type="button">Sketch search</Button>
       </DialogTrigger>
 
@@ -59,12 +55,10 @@ export function SketchSearchDialog({
             <Button
               type="button"
               onClick={() => {
-                ref.current?.exportPng((blob) => {
-                  if (blob) onSketchSubmit(blob);
-                });
+                ref.current?.exportPng(setSketch);
               }}
             >
-              Submit Sketch
+              Save Sketch
             </Button>
           </div>
         </div>
