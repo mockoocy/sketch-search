@@ -121,3 +121,18 @@ async def get_image_thumbnail(
             content=output.getvalue(),
             media_type=f"image/{image_format.lower()}",
         )
+
+
+@images_router.get("/{image_id}/view/")
+async def view_image(
+    image_id: int,
+    image_service: image_service,
+) -> Response:
+    image = image_service.get_image_by_id(image_id)
+    if not image:
+        return Response(status_code=404, content="Image not found.")
+    image_format = image.path.split(".")[-1].lower()
+    return Response(
+        content=Path(image.path).read_bytes(),
+        media_type=f"image/{image_format.lower()}",
+    )

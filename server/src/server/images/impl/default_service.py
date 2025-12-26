@@ -209,3 +209,6 @@ class DefaultImageService:
 
     def get_image_by_path(self, image_path: Path) -> IndexedImage | None:
         return self._indexed_image_repository.get_image_by_path(image_path)
+
+    def get_image_by_id(self, image_id: int) -> IndexedImage | None:
+        return self._indexed_image_repository.get_image_by_id(image_id)
