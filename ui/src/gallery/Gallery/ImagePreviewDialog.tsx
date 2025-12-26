@@ -1,3 +1,4 @@
+import { useDeleteImage } from "@/gallery/hooks";
 import type { IndexedImage } from "@/gallery/schema";
 import { Button } from "@/general/components/button";
 import {
@@ -33,9 +34,15 @@ export function ImagePreviewDialog({
   trigger,
 }: ImagePreviewDialogProps) {
   const [open, setOpen] = useState(false);
-  const setImageId = useGalleryStore((s) => s.setImageId);
+  const setImageId = useGalleryStore((state) => state.setImageId);
+
+  const { mutate: removeImage, isPending } = useDeleteImage();
 
   const fullSrc = `/api/images/${image.id}/view/`;
+
+  if (isPending) {
+    return <Button disabled>Deleting...</Button>;
+  }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -73,7 +80,14 @@ export function ImagePreviewDialog({
               Download
             </Button>
 
-            <Button variant="destructive" disabled>
+            <Button
+              variant="destructive"
+              disabled={isPending}
+              onClick={() => {
+                removeImage(image.id);
+                setOpen(false);
+              }}
+            >
               <Trash />
               Delete
             </Button>

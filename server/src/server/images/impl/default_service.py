@@ -97,9 +97,9 @@ class DefaultImageService:
         indexed_image = self._indexed_image_repository.get_image_by_id(image_id)
         if indexed_image:
             img_path = Path(indexed_image.path).resolve()
+            self._indexed_image_repository.delete_image_by_path(img_path)
             self._image_repository.delete_file(img_path)
             self.remove_thumbnail_for_image(img_path)
-            self._indexed_image_repository.delete_image_by_path(img_path)
 
     def query_images(self, query: ImageSearchQuery) -> list[IndexedImage]:
         return self._indexed_image_repository.query_images(query)

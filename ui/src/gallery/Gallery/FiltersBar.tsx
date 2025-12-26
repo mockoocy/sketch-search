@@ -1,3 +1,4 @@
+import { AddImageDialog } from "@/gallery/Gallery/AddImageDialog";
 import {
   ImageFilterPreview,
   type ImageFilterPreviewProps,
@@ -139,6 +140,7 @@ export function FiltersBar({ onSubmit }: FiltersBarProps) {
         <ImageFilterPreview {...similarityFilterProps} />
       )}
       <Button type="submit">Apply filters</Button>
+      <AddImageDialog />
     </form>
   );
 }

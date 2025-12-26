@@ -1,13 +1,16 @@
 import {
+  addImage,
+  deleteImage,
   listImages,
   searchByImage,
   similaritySearch,
   sseFsEventsClient,
+  type AddImagePayload,
   type FsEvent,
   type ListImagesData,
 } from "@/gallery/api";
 import type { ImageSearchQuery } from "@/gallery/schema";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 
 export const imageQueryKeys = {
@@ -117,4 +120,24 @@ export function useImageSearch(options: UseImageSearchOptions) {
   }
 
   return useQuery({ queryKey, queryFn });
+}
+
+export function useAddImage() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: AddImagePayload) => addImage(input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: imageQueryKeys.lists() });
+    },
+  });
+}
+
+export function useDeleteImage() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (imageId: number) => deleteImage(imageId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: imageQueryKeys.lists() });
+    },
+  });
 }

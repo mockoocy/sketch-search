@@ -161,3 +161,30 @@ export async function searchByImage(body: ImageSearchByImagePayload) {
     },
   });
 }
+
+export type AddImagePayload = {
+  file: File;
+  directory: string;
+};
+export async function addImage({ file, directory }: AddImagePayload) {
+  const formData = new FormData();
+  formData.append("image", file);
+  formData.append("directory", directory);
+
+  return apiFetch<{ status: string }>({
+    url: "/api/images",
+    method: "POST",
+    body: formData,
+    context: "Add Image",
+    credentials: "include",
+  });
+}
+
+export async function deleteImage(imageId: number) {
+  return await apiFetch<void>({
+    url: `/api/images/${imageId}`,
+    context: "Delete Image",
+    method: "DELETE",
+    credentials: "include",
+  });
+}

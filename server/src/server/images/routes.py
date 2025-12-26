@@ -78,11 +78,11 @@ async def search_by_image(
 @images_router.post("/")
 async def add_image(  # noqa: PLR0913
     image: UploadFile,
+    directory: Annotated[str, Form(...)],
     image_service: image_service,
     indexing_service: indexing_service,
     response: Response,
     config: server_config,
-    directory: Annotated[str, Form(...)],
 ) -> dict[str, str]:
     if not image.filename:
         response.status_code = 400
