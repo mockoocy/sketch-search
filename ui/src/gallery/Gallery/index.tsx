@@ -35,20 +35,29 @@ function sortingToImageOrdering(sorting: SortingState): {
 }
 
 export function Gallery() {
-  const sketch = useGalleryStore((state) => state.sketch);
-  const revision = useGalleryStore((state) => state.revision);
+  const similaritySource = useGalleryStore((state) => state.similaritySource);
   const query = useGalleryStore((state) => state.query);
   const setFilters = useGalleryStore((state) => state.setFilters);
   const setSorting = useGalleryStore((state) => state.setSorting);
 
-  const searchOptions: UseImageSearchOptions = sketch
-    ? {
-        searchType: "sketch",
-        sketch,
-        query,
-        revision: revision,
-      }
-    : { searchType: "plain", query };
+  const searchOptions: UseImageSearchOptions =
+    similaritySource == null
+      ? {
+          searchType: "plain",
+          query,
+        }
+      : similaritySource.kind === "image"
+        ? {
+            searchType: "image",
+            query,
+            imageId: similaritySource.imageId,
+          }
+        : {
+            searchType: "sketch",
+            query,
+            revision: similaritySource.revision,
+            sketch: similaritySource.blob,
+          };
 
   const { data } = useImageSearch(searchOptions);
 

@@ -1,10 +1,13 @@
-import { SketchPreview } from "@/gallery/Gallery/SketchPreview";
+import {
+  ImageFilterPreview,
+  type ImageFilterPreviewProps,
+} from "@/gallery/Gallery/ImageFilterPreview";
 import type { Filters } from "@/gallery/schema";
 import { Button } from "@/general/components/button";
 import { DatetimePicker } from "@/general/components/datetime-picker";
 import { Input } from "@/general/components/input";
 import { SketchSearchDialog } from "@/SketchCanvas/SketchSearchDialog";
-import { useGalleryStore } from "@/store";
+import { useGalleryStore, type SimilaritySource } from "@/store";
 import { Controller, useForm } from "react-hook-form";
 
 type FiltersFormValues = {
@@ -23,9 +26,22 @@ function toIso(date?: Date) {
   return date ? date.toISOString() : undefined;
 }
 
-export function FiltersBar({ onSubmit }: FiltersBarProps) {
-  const sketch = useGalleryStore((state) => state.sketch);
+function propsForSimilarityFilter(
+  similaritySource: SimilaritySource,
+): ImageFilterPreviewProps | null {
+  if (!similaritySource) {
+    return null;
+  }
+  if (similaritySource.kind === "sketch") {
+    return { variant: "sketch", sketch: similaritySource.blob };
+  } else {
+    return { variant: "image", imageId: similaritySource.imageId };
+  }
+}
 
+export function FiltersBar({ onSubmit }: FiltersBarProps) {
+  const similaritySource = useGalleryStore((state) => state.similaritySource);
+  const similarityFilterProps = propsForSimilarityFilter(similaritySource);
   const { register, control, reset, handleSubmit } = useForm<FiltersFormValues>(
     {
       mode: "onChange",
@@ -119,7 +135,9 @@ export function FiltersBar({ onSubmit }: FiltersBarProps) {
         Reset
       </Button>
       <SketchSearchDialog />
-      {sketch && <SketchPreview sketch={sketch} />}
+      {similarityFilterProps && (
+        <ImageFilterPreview {...similarityFilterProps} />
+      )}
       <Button type="submit">Apply filters</Button>
     </form>
   );

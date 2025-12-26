@@ -17,6 +17,12 @@ class SimilaritySearchFormData(BaseModel):
     query: ImageSearchQuery
 
 
+class SearchByImagePayload(BaseModel):
+    image_id: int
+    top_k: int
+    query: ImageSearchQuery
+
+
 class ListImagesResponse(BaseModel):
     images: list[IndexedImage]
     total: int
@@ -57,15 +63,16 @@ async def similarity_search(
     )
 
 
-@images_router.get("/search-by-image/")
+@images_router.post("/search-by-image/")
 async def search_by_image(
-    image_id: int,
-    top_k: int,
+    body: SearchByImagePayload,
     image_service: image_service,
-) -> dict[str, list[IndexedImage]]:
-    return {
-        "images": image_service.search_by_image(image_id, top_k),
-    }
+) -> ListImagesResponse:
+    images = image_service.search_by_image(body.image_id, body.top_k, body.query)
+    return ListImagesResponse(
+        images=images,
+        total=len(images),
+    )
 
 
 @images_router.post("/")

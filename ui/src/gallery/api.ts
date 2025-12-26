@@ -1,7 +1,7 @@
 import type { ImageSearchQuery, IndexedImage } from "@/gallery/schema";
 import { apiFetch } from "@/general/api";
 
-type ListImagesData = {
+export type ListImagesData = {
   images: IndexedImage[];
   total: number;
 };
@@ -140,5 +140,24 @@ export async function similaritySearch({
     method: "POST",
     body: formData,
     credentials: "include",
+  });
+}
+
+type ImageSearchByImagePayload = {
+  image_id: number;
+  top_k: number;
+  query: ImageSearchQuery;
+};
+
+export async function searchByImage(body: ImageSearchByImagePayload) {
+  return await apiFetch<ListImagesData>({
+    url: "/api/images/search-by-image/",
+    context: "Search By Image",
+    method: "POST",
+    body: JSON.stringify(body),
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+    },
   });
 }

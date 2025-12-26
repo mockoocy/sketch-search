@@ -16,7 +16,7 @@ export type ImageSearchQueryInput = z.input<typeof imageSearchQuerySchema>;
 export type ImageSearchQuery = z.output<typeof imageSearchQuerySchema>;
 
 export type IndexedImage = {
-  id?: number;
+  id: number;
   path: string;
   user_visible_name: string;
   created_at?: string;

@@ -1,8 +1,10 @@
 import {
   listImages,
+  searchByImage,
   similaritySearch,
   sseFsEventsClient,
   type FsEvent,
+  type ListImagesData,
 } from "@/gallery/api";
 import type { ImageSearchQuery } from "@/gallery/schema";
 import { useQuery } from "@tanstack/react-query";
@@ -15,6 +17,8 @@ export const imageQueryKeys = {
     [...imageQueryKeys.lists(), query] as const,
   similaritySearch: (query: ImageSearchQuery, revision: number) =>
     [...imageQueryKeys.list(query), "similarity", revision] as const,
+  searchByImage: (query: ImageSearchQuery, imageId: number) =>
+    [...imageQueryKeys.list(query), "search-by-image", imageId] as const,
 } as const;
 
 export type UseFsEventsOptions = {
@@ -58,10 +62,16 @@ export function useFsEvents({
   }, [onCreate, onDelete, onModify, onMove]);
 }
 
-type UseSimilaritySearchOptions = {
+type UseSketchSearchOptions = {
   searchType: "sketch";
   sketch: Blob;
   revision: number;
+  query: ImageSearchQuery;
+};
+
+type UseImageSimilaritySearchOptions = {
+  searchType: "image";
+  imageId: number;
   query: ImageSearchQuery;
 };
 
@@ -72,21 +82,39 @@ type UseListImagesOptions = {
 
 export type UseImageSearchOptions =
   | UseListImagesOptions
-  | UseSimilaritySearchOptions;
+  | UseImageSimilaritySearchOptions
+  | UseSketchSearchOptions;
 export function useImageSearch(options: UseImageSearchOptions) {
-  const queryKey =
-    options.searchType === "plain"
-      ? imageQueryKeys.list(options.query)
-      : imageQueryKeys.similaritySearch(options.query, options.revision);
+  let queryKey: readonly unknown[];
+  let queryFn: () => Promise<ListImagesData>;
 
-  const queryFn =
-    options.searchType === "plain"
-      ? () => listImages(options.query)
-      : () =>
-          similaritySearch({
-            image: options.sketch!,
-            topK: options.query.items_per_page,
-            query: options.query,
-          });
+  switch (options.searchType) {
+    case "plain":
+      queryKey = imageQueryKeys.list(options.query);
+      queryFn = () => listImages(options.query);
+      break;
+    case "image":
+      queryKey = imageQueryKeys.searchByImage(options.query, options.imageId);
+      queryFn = () =>
+        searchByImage({
+          image_id: options.imageId,
+          query: options.query,
+          top_k: options.query.items_per_page,
+        });
+      break;
+    case "sketch":
+      queryKey = imageQueryKeys.similaritySearch(
+        options.query,
+        options.revision,
+      );
+      queryFn = () =>
+        similaritySearch({
+          image: options.sketch,
+          query: options.query,
+          topK: options.query.items_per_page,
+        });
+      break;
+  }
+
   return useQuery({ queryKey, queryFn });
 }

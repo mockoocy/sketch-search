@@ -132,7 +132,7 @@ export const SketchCanvas = forwardRef<
     redo: [],
   });
 
-  const clearSketch = useGalleryStore((state) => state.clearSketch);
+  const clearSource = useGalleryStore((state) => state.clearSource);
 
   useImperativeHandle(
     ref,
@@ -143,7 +143,7 @@ export const SketchCanvas = forwardRef<
           redrawAll(canvasRef.current!.getContext("2d")!, width, height, []);
         }
         onCommit?.();
-        clearSketch();
+        clearSource();
       },
       undo: () => {
         dispatch({ type: "undo" });
@@ -182,7 +182,7 @@ export const SketchCanvas = forwardRef<
       },
       isEmpty: () => state.history.length === 0,
     }),
-    [onCommit, height, state.history, state.redo, width, clearSketch],
+    [onCommit, height, state.history, state.redo, width, clearSource],
   );
 
   function onPointerDown(event: React.PointerEvent<HTMLCanvasElement>) {

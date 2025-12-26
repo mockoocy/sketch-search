@@ -1,11 +1,28 @@
+import { PAGE_SIZES } from "@/gallery/Gallery/ImagesTablePagination";
 import type { ImageSearchQuery } from "@/gallery/schema";
 import { create } from "zustand";
 
-type SketchState = {
-  sketch: Blob | null;
+type SketchSimilaritySource = {
+  kind: "sketch";
+  blob: Blob;
   revision: number;
-  setSketch: (blob: Blob | null) => void;
-  clearSketch: () => void;
+};
+
+type ImageSimilaritySource = {
+  kind: "image";
+  imageId: number;
+};
+
+export type SimilaritySource =
+  | SketchSimilaritySource
+  | ImageSimilaritySource
+  | null;
+
+type SimilaritySearchState = {
+  similaritySource: SimilaritySource | null;
+  setImageId: (imageId: number) => void;
+  setSketch: (blob: Blob) => void;
+  clearSource: () => void;
 };
 
 type QueryState = {
@@ -26,26 +43,25 @@ type QueryState = {
   setItemsPerPage: (items_per_page: number) => void;
 };
 
-type GalleryStore = SketchState & QueryState;
+type GalleryStore = SimilaritySearchState & QueryState;
 
 export const useGalleryStore = create<GalleryStore>((set) => ({
-  sketch: null,
-  revision: 0,
-  setSketch: (blob) =>
-    set((state) => ({
-      sketch: blob,
-      revision: state.revision + 1,
-      query: { ...state.query, page: 1 },
+  similaritySource: null,
+  setImageId: (imageId) =>
+    set(() => ({
+      similaritySource: { kind: "image", imageId },
     })),
-  clearSketch: () =>
-    set((state) => ({
-      sketch: null,
-      revision: state.revision + 1,
-      query: { ...state.query, page: 1 },
+  clearSource: () =>
+    set(() => ({
+      similaritySource: null,
+    })),
+  setSketch: (blob) =>
+    set(() => ({
+      similaritySource: { kind: "sketch", blob, revision: 0 },
     })),
   query: {
     page: 1,
-    items_per_page: 10,
+    items_per_page: PAGE_SIZES[0],
     order_by: "user_visible_name",
     direction: "ascending",
   },

@@ -108,7 +108,7 @@ class DefaultImageService:
         self,
         image: Image.Image,
         top_k: int,
-        query: ImageSearchQuery | None = None,
+        query: ImageSearchQuery,
     ) -> list[IndexedImage]:
         image_numpy = np.array(image.convert("RGB").resize((224, 224)))
         embedding = self._embedder.embed(image_numpy)[0]
@@ -118,13 +118,22 @@ class DefaultImageService:
             query,
         )
 
-    def search_by_image(self, image_id: int, top_k: int) -> list[IndexedImage]:
+    def search_by_image(
+        self,
+        image_id: int,
+        top_k: int,
+        query: ImageSearchQuery,
+    ) -> list[IndexedImage]:
         indexed_image = self._indexed_image_repository.get_image_by_id(image_id)
         if not indexed_image:
             err_msg = f"Indexed image with ID {image_id} not found."
             raise ImageNotFoundError(err_msg)
         embedding = indexed_image.embedding
-        return self._indexed_image_repository.get_k_nearest_images(embedding, top_k)
+        return self._indexed_image_repository.get_k_nearest_images(
+            embedding,
+            top_k,
+            query,
+        )
 
     def get_unindexed_images(self) -> list[Path]:
         watched_directory = Path(self._watcher_config.watched_directory).resolve()
