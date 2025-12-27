@@ -1,4 +1,5 @@
 import { AddImageDialog } from "@/gallery/Gallery/AddImageDialog";
+import { DirectoryScopeToggle } from "@/gallery/Gallery/DirectoryScopeToggle";
 import {
   ImageFilterPreview,
   type ImageFilterPreviewProps,
@@ -10,7 +11,6 @@ import { Input } from "@/general/components/input";
 import { SketchSearchDialog } from "@/SketchCanvas/SketchSearchDialog";
 import { useGalleryStore, type SimilaritySource } from "@/store";
 import { Controller, useForm } from "react-hook-form";
-
 type FiltersFormValues = {
   name_contains?: string;
   created_min?: Date;
@@ -140,6 +140,8 @@ export function FiltersBar({ onSubmit }: FiltersBarProps) {
         <ImageFilterPreview {...similarityFilterProps} />
       )}
       <Button type="submit">Apply filters</Button>
+      <DirectoryScopeToggle />
+
       <AddImageDialog />
     </form>
   );

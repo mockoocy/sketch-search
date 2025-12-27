@@ -10,6 +10,7 @@ export const imageSearchQuerySchema = z.object({
   created_max: z.iso.datetime().optional(),
   modified_min: z.iso.datetime().optional(),
   modified_max: z.iso.datetime().optional(),
+  directory: z.string().min(1).nullable().default(null),
 });
 
 export type ImageSearchQueryInput = z.input<typeof imageSearchQuerySchema>;
@@ -21,6 +22,14 @@ export type IndexedImage = {
   user_visible_name: string;
   created_at?: string;
   modified_at?: string;
+};
+
+export type DirectoryNode = {
+  path: string;
+  parent?: string;
+  created_at: string;
+  modified_at: string;
+  children: DirectoryNode[];
 };
 
 // for some reason zod compiles date types to string

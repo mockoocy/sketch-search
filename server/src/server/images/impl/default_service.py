@@ -36,70 +36,59 @@ class DefaultImageService:
         self._thumbnail_config = thumbnail_config
         self._watcher_config = watcher_config
 
-    def _write_to(self, base_dir: Path, relative_path: Path, image: bytes) -> None:
-        base_dir_resolved = base_dir.resolve()
-        full_path = (base_dir_resolved / relative_path).resolve()
-        if not full_path.is_relative_to(base_dir_resolved):
-            err_msg = f"Attempted to write outside the base directory: {full_path}"
-            raise InvalidFsAccessError(err_msg)
-        self._image_repository.write_file(image, full_path)
-
-    def _resolve_thumbnail_path(self, full_image_path: Path) -> Path:
-        thumbnail_directory = Path(self._thumbnail_config.thumbnail_directory).resolve()
-        relative_path = full_image_path.relative_to(
-            Path(self._watcher_config.watched_directory).resolve(),
-        )
-        return (thumbnail_directory / relative_path).resolve()
-
     def add_image(self, image: bytes, relative_path: Path) -> None:
-        with BytesIO(image) as img_buffer:
-            img = Image.open(img_buffer)
+        with BytesIO(image) as buf:
+            img = Image.open(buf)
             try:
                 img.verify()
             except Exception as ex:
                 err_msg = f"Image verification failed for file: {relative_path}"
-                raise InvalidImageError(err_msg) from ex
-        watched_directory = Path(self._watcher_config.watched_directory).resolve()
-        self._write_to(watched_directory, relative_path, image)
-        app_logger.info(f"Added image at path: {relative_path}")
+                raise InvalidImageError(
+                    err_msg,
+                ) from ex
 
-    def add_thumbnail_for_image(self, image_path: Path) -> None:
-        full_image_path = image_path.resolve()
-        image_bytes = full_image_path.read_bytes()
-        with BytesIO(image_bytes) as img_buffer:
-            img = Image.open(img_buffer)
+        self._image_repository.write_image(image, relative_path)
+        app_logger.info("Added image at path: %s", relative_path)
+
+    def add_thumbnail_for_image(self, relative_path: Path) -> None:
+        try:
+            image_bytes = self._image_repository.read_image(relative_path)
+        except InvalidFsAccessError as ex:
+            err_msg = f"Image does not exist: {relative_path}"
+            raise ImageNotFoundError(err_msg) from ex
+
+        with BytesIO(image_bytes) as buf:
+            img = Image.open(buf)
             try:
                 img.verify()
             except Exception as ex:
-                err_msg = f"Image verification failed for file: {image_path}"
-                raise InvalidImageError(err_msg) from ex
+                err_msg = f"Image verification failed for file: {relative_path}"
+                raise InvalidImageError(
+                    err_msg,
+                ) from ex
 
-        with BytesIO(image_bytes) as thumb_buffer:
-            thumbnail_img = Image.open(thumb_buffer)
-            thumbnail_img.thumbnail(self._thumbnail_config.size)
-            thumbnail_img.save(thumb_buffer, format=img.format)
-            thumb_data = thumb_buffer.getvalue()
-        thumb_path = self._resolve_thumbnail_path(full_image_path)
-        self._write_to(
-            Path(self._thumbnail_config.thumbnail_directory).resolve(),
-            thumb_path.relative_to(
-                Path(self._thumbnail_config.thumbnail_directory).resolve(),
-            ),
-            thumb_data,
-        )
+        with BytesIO(image_bytes) as buf:
+            thumb = Image.open(buf)
+            thumb.thumbnail(self._thumbnail_config.size)
+            out = BytesIO()
+            thumb.save(out, format=img.format)
+            thumb_bytes = out.getvalue()
 
-    def remove_thumbnail_for_image(self, image_path: Path) -> None:
-        full_image_path = image_path.resolve()
-        thumb_path = self._resolve_thumbnail_path(full_image_path)
-        self._image_repository.delete_file(thumb_path)
+        self._image_repository.write_thumbnail(thumb_bytes, relative_path)
+
+    def remove_thumbnail_for_image(self, relative_path: Path) -> None:
+        self._image_repository.delete_thumbnail(relative_path)
 
     def remove_image(self, image_id: int) -> None:
         indexed_image = self._indexed_image_repository.get_image_by_id(image_id)
-        if indexed_image:
-            img_path = Path(indexed_image.path).resolve()
-            self._indexed_image_repository.delete_image_by_path(img_path)
-            self._image_repository.delete_file(img_path)
-            self.remove_thumbnail_for_image(img_path)
+        if not indexed_image:
+            return
+
+        rel = Path(indexed_image.path)
+
+        self._indexed_image_repository.delete_image_by_path(rel)
+        self._image_repository.delete_image(rel)
+        self._image_repository.delete_thumbnail(rel)
 
     def query_images(self, query: ImageSearchQuery) -> list[IndexedImage]:
         return self._indexed_image_repository.query_images(query)
@@ -128,62 +117,60 @@ class DefaultImageService:
         if not indexed_image:
             err_msg = f"Indexed image with ID {image_id} not found."
             raise ImageNotFoundError(err_msg)
-        embedding = indexed_image.embedding
         return self._indexed_image_repository.get_k_nearest_images(
-            embedding,
+            indexed_image.embedding,
             top_k,
             query,
         )
 
     def get_unindexed_images(self) -> list[Path]:
-        watched_directory = Path(self._watcher_config.watched_directory).resolve()
         recursive = self._watcher_config.watch_recursive
         all_image_paths = self._image_repository.list_images(
-            watched_directory,
+            Path(),
             recursive=recursive,
         )
-        indexed_image_paths = set[Path]()
+
+        indexed_paths = set[Path]()
+        page = 1
         while True:
             batch = self._indexed_image_repository.query_images(
                 ImageSearchQuery(
-                    page=len(indexed_image_paths) // QUERY_IMAGE_BATCH_SIZE + 1,
+                    page=page,
                     items_per_page=QUERY_IMAGE_BATCH_SIZE,
                 ),
             )
-            indexed_image_paths.update(Path(img.path).resolve() for img in batch)
+            indexed_paths.update(Path(img.path) for img in batch)
             if len(batch) < QUERY_IMAGE_BATCH_SIZE:
                 break
-        unindexed_images = [
-            path
-            for path in all_image_paths
-            if path.resolve() not in indexed_image_paths
-        ]
-        app_logger.info(f"Found {len(unindexed_images)} unindexed images.")
-        return unindexed_images
+            page += 1
+
+        unindexed = [path for path in all_image_paths if path not in indexed_paths]
+        app_logger.info("Found %d unindexed images.", len(unindexed))
+        return unindexed
 
     def get_thumbnail_for_image(self, image_id: int) -> Image.Image:
         indexed_image = self._indexed_image_repository.get_image_by_id(image_id)
         if not indexed_image:
             err_msg = f"Indexed image with ID {image_id} not found."
             raise ImageNotFoundError(err_msg)
-        img_path = Path(indexed_image.path).resolve()
-        if not img_path.exists():
-            err_msg = f"Image {image_id} does not exist on the filesystem!"
-            raise ImageNotFoundError(err_msg)
-        thumb_path = self._resolve_thumbnail_path(img_path)
+
+        rel = Path(indexed_image.path)
+
         try:
-            thumbnail_bytes = self._image_repository.read_file(thumb_path)
-        except (InvalidFsAccessError, ImageNotFoundError):
-            self.add_thumbnail_for_image(img_path)
-            thumbnail_bytes = self._image_repository.read_file(thumb_path)
-        with BytesIO(thumbnail_bytes) as thumb_buffer:
-            img = Image.open(thumb_buffer)
+            thumb_bytes = self._image_repository.read_thumbnail(rel)
+        except InvalidFsAccessError:
+            self.add_thumbnail_for_image(rel)
+            thumb_bytes = self._image_repository.read_thumbnail(rel)
+
+        with BytesIO(thumb_bytes) as buf:
+            img = Image.open(buf)
             img.load()
             return img
 
     def clean_stale_indexed_images(self) -> None:
         collection_size = self._indexed_image_repository.get_total_images_count()
         pages = (collection_size + QUERY_IMAGE_BATCH_SIZE - 1) // QUERY_IMAGE_BATCH_SIZE
+
         for page in range(1, pages + 1):
             batch = self._indexed_image_repository.query_images(
                 ImageSearchQuery(
@@ -192,19 +179,26 @@ class DefaultImageService:
                 ),
             )
             for indexed_image in batch:
-                img_path = Path(indexed_image.path).resolve()
-                if not img_path.exists():
-                    self._indexed_image_repository.delete_image_by_path(img_path)
+                rel = Path(indexed_image.path)
+                try:
+                    image_bytes = self._image_repository.read_image(rel)
+                except InvalidFsAccessError:
+                    self._indexed_image_repository.delete_image_by_path(rel)
                     app_logger.info(
-                        f"Removed stale indexed image for missing file: {img_path}",
+                        "Removed stale indexed image due to missing file: %s",
+                        rel,
                     )
                     continue
-                content_hash = create_content_hash(Image.open(img_path).convert("RGB"))
+
+                with BytesIO(image_bytes) as buf:
+                    img = Image.open(buf).convert("RGB")
+                    content_hash = create_content_hash(img)
+
                 if content_hash != indexed_image.content_hash:
-                    self._indexed_image_repository.delete_image_by_path(img_path)
+                    self._indexed_image_repository.delete_image_by_path(rel)
                     app_logger.info(
-                        "Removed stale indexed image due to content hash mismatch: %s",
-                        img_path,
+                        "Removed stale indexed image due to hash mismatch: %s",
+                        rel,
                     )
 
     def get_image_by_path(self, image_path: Path) -> IndexedImage | None:

@@ -18,6 +18,7 @@ from server.index.service import IndexingService
 from server.index.utils import create_content_hash
 from server.logger import app_logger
 from server.observer.fs_observer import ImageWatcherHandler
+from server.observer.path_resolver import PathResolver
 
 EMBED_MAX_WAIT_SECONDS = 1.0
 
@@ -29,6 +30,7 @@ class BackgroundEmbedder:
         indexing_service: IndexingService,
         image_service: ImageService,
         event_bus: EventBus,
+        path_resolver: PathResolver,
     ) -> None:
         self._queue = asyncio.Queue[Path]()
         self._loop = asyncio.get_event_loop()
@@ -37,6 +39,7 @@ class BackgroundEmbedder:
         self._indexing_service = indexing_service
         self._image_service = image_service
         self._event_bus = event_bus
+        self._path_resolver = path_resolver
 
         self._observer: BaseObserver = self._create_observer()
         self._event_bus.subscribe(
@@ -85,7 +88,10 @@ class BackgroundEmbedder:
     def _create_observer(self) -> BaseObserver:
         observer = Observer()
         observer.schedule(
-            ImageWatcherHandler(event_bus=self._event_bus),
+            ImageWatcherHandler(
+                event_bus=self._event_bus,
+                path_resolver=self._path_resolver,
+            ),
             path=self._config.watched_directory,
             recursive=self._config.watch_recursive,
         )

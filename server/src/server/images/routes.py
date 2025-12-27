@@ -127,12 +127,14 @@ async def get_image_thumbnail(
 async def view_image(
     image_id: int,
     image_service: image_service,
+    server_config: server_config,
 ) -> Response:
     image = image_service.get_image_by_id(image_id)
     if not image:
         return Response(status_code=404, content="Image not found.")
+    full_path = (Path(server_config.watcher.watched_directory) / image.path).resolve()
     image_format = image.path.split(".")[-1].lower()
     return Response(
-        content=Path(image.path).read_bytes(),
+        content=full_path.read_bytes(),
         media_type=f"image/{image_format.lower()}",
     )

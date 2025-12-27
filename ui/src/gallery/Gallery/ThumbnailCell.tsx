@@ -1,14 +1,14 @@
 import { ImagePreviewDialog } from "@/gallery/Gallery/ImagePreviewDialog";
-import type { IndexedImage } from "@/gallery/schema";
+import type { ImageRow } from "@/gallery/hooks";
 import { Button } from "@/general/components/button";
 import { OverlayedImage } from "@/general/components/overlayed-image";
 
 type ThumbnailCellProps = {
-  image: IndexedImage;
+  row: ImageRow;
 };
 
-export function ThumbnailCell({ image }: ThumbnailCellProps) {
-  const { id, user_visible_name, path } = image;
+export function ThumbnailCell({ row }: ThumbnailCellProps) {
+  const { id, user_visible_name, path } = row.image;
 
   const url = `/api/images/${id}/thumbnail/`;
   return (
@@ -18,7 +18,7 @@ export function ThumbnailCell({ image }: ThumbnailCellProps) {
         alt={user_visible_name ?? "Thumbnail"}
         overlayContent={
           <ImagePreviewDialog
-            image={image}
+            image={row.image}
             trigger={
               <Button variant="ghost" size="icon">
                 Preview

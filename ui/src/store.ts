@@ -41,6 +41,7 @@ type QueryState = {
     >,
   ) => void;
   setItemsPerPage: (items_per_page: number) => void;
+  setDirectory: (directory: string | null) => void;
 };
 
 type GalleryStore = SimilaritySearchState & QueryState;
@@ -77,5 +78,9 @@ export const useGalleryStore = create<GalleryStore>((set) => ({
   setItemsPerPage: (items_per_page) =>
     set((state) => ({
       query: { ...state.query, page: 1, items_per_page },
+    })),
+  setDirectory: (directory) =>
+    set((state) => ({
+      query: { ...state.query, page: 1, directory },
     })),
 }));

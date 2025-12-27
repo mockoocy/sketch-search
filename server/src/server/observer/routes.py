@@ -1,10 +1,14 @@
 import asyncio
 from collections.abc import AsyncGenerator, Generator
 from contextlib import contextmanager
+from datetime import UTC, datetime
+from pathlib import Path
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, Response
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 
+from server.dependencies import server_config
 from server.events.event_bus import EventBus
 from server.events.events import (
     Event,
@@ -14,7 +18,15 @@ from server.events.events import (
     FileMovedEvent,
 )
 
-events_router = APIRouter(prefix="/api/events", tags=["events"])
+observer_router = APIRouter(prefix="/api/fs", tags=["observer", "filesystem", "events"])
+
+
+class DirectoryNode(BaseModel):
+    path: str
+    parent: str | None
+    created_at: datetime
+    modified_at: datetime
+    children: list["DirectoryNode"] = []
 
 
 @contextmanager
@@ -92,7 +104,7 @@ async def _event_generator(
             yield message
 
 
-@events_router.get("/")
+@observer_router.get("/events/")
 def fs_events(
     request: Request,
 ) -> StreamingResponse:
@@ -105,3 +117,38 @@ def fs_events(
             "X-Accel-Buffering": "no",
         },
     )
+
+
+@observer_router.get("/watched-directories/")
+async def watched_directories(
+    config: server_config,
+) -> Response:
+    root = Path(config.watcher.watched_directory)
+
+    def build_tree(path: Path) -> DirectoryNode | None:
+        if not path.is_dir():
+            return None
+        relative_path = path.relative_to(root)
+        relative_parent = relative_path.parent
+        stat = path.stat()
+        node = DirectoryNode(
+            path=str(relative_path),
+            parent=str(relative_parent) if relative_parent != relative_path else None,
+            created_at=datetime.fromtimestamp(stat.st_ctime, tz=UTC),
+            modified_at=datetime.fromtimestamp(stat.st_mtime, tz=UTC),
+            children=[],
+        )
+        if path.is_dir():
+            for child in path.iterdir():
+                child_node = build_tree(child)
+                if child_node:
+                    node.children.append(child_node)
+        return node
+
+    tree = build_tree(root)
+    if tree is None:
+        return Response(
+            status_code=404,
+            content="Watched directory not found or is not a directory.",
+        )
+    return Response(content=tree.model_dump_json(), media_type="application/json")

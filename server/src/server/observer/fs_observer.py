@@ -33,12 +33,13 @@ from server.events.events import (
     FileModifiedEvent,
     FileMovedEvent,
 )
+from server.observer.path_resolver import PathResolver
 
 IMG_PATTERNS = ["*.png", "*.jpg", "*.jpeg", "*.gif", "*.bmp", "*.tiff", "*.webp"]
 
 
 class ImageWatcherHandler(PatternMatchingEventHandler):
-    def __init__(self, event_bus: EventBus) -> None:
+    def __init__(self, event_bus: EventBus, path_resolver: PathResolver) -> None:
         super().__init__(
             patterns=IMG_PATTERNS,
             ignore_patterns=None,
@@ -46,21 +47,22 @@ class ImageWatcherHandler(PatternMatchingEventHandler):
             case_sensitive=False,
         )
         self._event_bus = event_bus
+        self._path_resolver = path_resolver
 
     def on_created(self, event: WdDirCreatedEvent | WdFileCreatedEvent) -> None:
-        src_file = Path(str(event.src_path))
+        src_file = self._path_resolver.to_relative(Path(str(event.src_path)))
         created_time = datetime.fromtimestamp(src_file.stat().st_ctime, tz=UTC)
         new_event = FileCreatedEvent(path=src_file, created_at=created_time)
         self._event_bus.publish(new_event)
 
     def on_deleted(self, event: WdDirDeletedEvent | WdFileDeletedEvent) -> None:
-        src_file = Path(str(event.src_path))
+        src_file = self._path_resolver.to_relative(Path(str(event.src_path)))
         new_event = FileDeletedEvent(path=src_file)
         self._event_bus.publish(new_event)
 
     def on_moved(self, event: WdDirMovedEvent | WdFileMovedEvent) -> None:
-        old_path = Path(str(event.src_path))
-        new_path = Path(str(event.dest_path))
+        old_path = self._path_resolver.to_relative(Path(str(event.src_path)))
+        new_path = self._path_resolver.to_relative(Path(str(event.dest_path)))
         moved_at = datetime.fromtimestamp(new_path.stat().st_mtime, tz=UTC)
         new_event = FileMovedEvent(
             old_path=old_path,
@@ -70,7 +72,7 @@ class ImageWatcherHandler(PatternMatchingEventHandler):
         self._event_bus.publish(new_event)
 
     def on_modified(self, event: WdFileSystemEvent) -> None:
-        src_file = Path(str(event.src_path))
+        src_file = self._path_resolver.to_relative(Path(str(event.src_path)))
         modified_at = datetime.fromtimestamp(src_file.stat().st_mtime, tz=UTC)
         new_event = FileModifiedEvent(path=src_file, modified_at=modified_at)
         self._event_bus.publish(new_event)

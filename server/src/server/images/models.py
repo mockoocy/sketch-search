@@ -14,3 +14,4 @@ class ImageSearchQuery(BaseModel):
     created_max: datetime | None = None
     modified_min: datetime | None = None
     modified_max: datetime | None = None
+    directory: str | None = None

@@ -1,4 +1,8 @@
-import type { ImageSearchQuery, IndexedImage } from "@/gallery/schema";
+import type {
+  DirectoryNode,
+  ImageSearchQuery,
+  IndexedImage,
+} from "@/gallery/schema";
 import { apiFetch } from "@/general/api";
 
 export type ListImagesData = {
@@ -117,7 +121,7 @@ class SseClient {
   }
 }
 
-export const sseFsEventsClient = new SseClient("/api/events");
+export const sseFsEventsClient = new SseClient("/api/fs/events");
 
 export type SimilaritySearchInput = {
   image: Blob;
@@ -185,6 +189,15 @@ export async function deleteImage(imageId: number) {
     url: `/api/images/${imageId}`,
     context: "Delete Image",
     method: "DELETE",
+    credentials: "include",
+  });
+}
+
+export async function listDirectories() {
+  return await apiFetch<DirectoryNode>({
+    url: "/api/fs/watched-directories/",
+    context: "List Directories",
+    method: "GET",
     credentials: "include",
   });
 }

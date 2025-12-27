@@ -19,7 +19,7 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      "/api/events": {
+      "/api/fs/events": {
         target: "http://server:8000",
         configure: (proxy) => {
           proxy.on("proxyRes", (proxyRes) => {

@@ -1,6 +1,8 @@
+import { DirectoryCell } from "@/gallery/Gallery/DirectoryCell";
+import { GoBackCell } from "@/gallery/Gallery/GoBackCell";
 import { ImagesTablePagination } from "@/gallery/Gallery/ImagesTablePagination";
 import { ThumbnailCell } from "@/gallery/Gallery/ThumbnailCell";
-import type { IndexedImage } from "@/gallery/schema";
+import type { GalleryRow } from "@/gallery/hooks";
 import {
   Table,
   TableBody,
@@ -19,47 +21,79 @@ import {
 } from "@tanstack/react-table";
 import { ArrowDownNarrowWide, ArrowUpNarrowWide } from "lucide-react";
 
-const columns: ColumnDef<IndexedImage>[] = [
+const columns: ColumnDef<GalleryRow>[] = [
   {
     id: "user_visible_name",
     header: "Image",
-    accessorFn: (row) => row.user_visible_name,
-    cell: ({ row }) => <ThumbnailCell image={row.original} />,
-  },
-  {
-    accessorKey: "created_at",
-    header: "Created At",
-    cell: (info) => {
-      const v = info.getValue() as string | null;
-      return v ? new Date(v).toLocaleString() : "-";
+    accessorFn: (row) => {
+      if (row.kind === "directory") {
+        return row.directory.path;
+      } else if (row.kind === "image") {
+        return row.image.user_visible_name;
+      } else {
+        return "..";
+      }
+    },
+    cell: ({ row }) => {
+      if (row.original.kind === "directory") {
+        return <DirectoryCell row={row.original} />;
+      } else if (row.original.kind === "image") {
+        return <ThumbnailCell row={row.original} />;
+      } else {
+        return <GoBackCell parentPath={row.original.parentDirectory.path} />;
+      }
     },
   },
   {
-    accessorKey: "modified_at",
+    accessorFn: (row) => {
+      if (row.kind === "directory") {
+        return row.directory.created_at;
+      } else if (row.kind === "image") {
+        return row.image.created_at;
+      } else {
+        return row.parentDirectory.created_at;
+      }
+    },
+    header: "Created At",
+    cell: (info) => {
+      const value = info.getValue() as string | null;
+      return value ? new Date(value).toLocaleString() : "-";
+    },
+  },
+  {
+    accessorFn: (row) => {
+      if (row.kind === "directory") {
+        return row.directory.modified_at;
+      } else if (row.kind === "image") {
+        return row.image.modified_at;
+      } else {
+        return row.parentDirectory.modified_at;
+      }
+    },
     header: "Modified At",
     cell: (info) => {
-      const v = info.getValue() as string | null;
-      return v ? new Date(v).toLocaleString() : "-";
+      const value = info.getValue() as string | null;
+      return value ? new Date(value).toLocaleString() : "-";
     },
   },
 ];
 
 type ImagesTableProps = {
-  images: IndexedImage[];
+  rows: GalleryRow[];
   gallerySize: number;
   onSortingChange: OnChangeFn<SortingState>;
   sorting: SortingState;
 };
 
 export function ImagesTable({
-  images,
+  rows,
   gallerySize,
   onSortingChange,
   sorting,
 }: ImagesTableProps) {
   // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
-    data: images ?? [],
+    data: rows,
     columns: columns,
     manualSorting: true,
     manualPagination: true,

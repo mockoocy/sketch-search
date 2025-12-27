@@ -3,7 +3,7 @@ import { ImagesTable } from "@/gallery/Gallery/ImagesTable";
 import {
   imageQueryKeys,
   useFsEvents,
-  useImageSearch,
+  useGetGalleryRows,
   type UseImageSearchOptions,
 } from "@/gallery/hooks";
 import { type ImageSearchQuery } from "@/gallery/schema";
@@ -59,7 +59,7 @@ export function Gallery() {
             sketch: similaritySource.blob,
           };
 
-  const { data } = useImageSearch(searchOptions);
+  const { rows, gallerySize } = useGetGalleryRows(searchOptions);
 
   const queryClient = useQueryClient();
   useFsEvents({
@@ -85,10 +85,9 @@ export function Gallery() {
     <Card className="w-full">
       <CardContent className="space-y-4">
         <FiltersBar onSubmit={setFilters} />
-
         <ImagesTable
-          images={data?.images || []}
-          gallerySize={data?.total || 0}
+          rows={rows}
+          gallerySize={gallerySize}
           onSortingChange={(updater) => {
             if (typeof updater === "function") {
               const currentSortingState = imageOrderingToSorting(

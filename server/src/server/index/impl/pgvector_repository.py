@@ -18,11 +18,24 @@ class PgVectorIndexedImageRepository:
     def __init__(
         self,
         db_session: Session,
+        watched_directory: Path,
     ) -> None:
         self._db_session = db_session
+        self._watched_directory = watched_directory
 
     def _build_conditions(self, query: ImageSearchQuery) -> list[bool]:
         conditions = list[bool]()  # not really bool, but sqlmodel expression
+
+        if query.directory == ".":
+            conditions.append(~IndexedImage.path.contains("/"))
+        elif query.directory:
+            prefix = query.directory.rstrip("/")
+
+            conditions.append(
+                IndexedImage.path.like(f"{prefix}/%")
+                & ~IndexedImage.path.like(f"{prefix}/%/%"),
+            )
+
         if query.name_contains:
             conditions.append(
                 IndexedImage.user_visible_name.ilike(f"%{query.name_contains}%"),
@@ -51,8 +64,13 @@ class PgVectorIndexedImageRepository:
             app_logger.info(f"Added {len(images)} images to the repository.")
 
     def delete_image_by_path(self, image_path: Path) -> None:
-        """Delete an image embedding from the repository by its ID."""
-        statement = select(IndexedImage).where(IndexedImage.path == str(image_path))
+        """Delete an image embedding from the repository by its Path."""
+        if image_path.is_relative_to(self._watched_directory):
+            relative_path = image_path.relative_to(self._watched_directory)
+        else:
+            relative_path = image_path
+
+        statement = select(IndexedImage).where(IndexedImage.path == str(relative_path))
         image = self._db_session.exec(statement).first()
         self._db_session.delete(image)
         self._db_session.commit()

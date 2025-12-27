@@ -45,7 +45,6 @@ export function DatetimePicker({ onChange, date }: DatetimePickerProps) {
   const [isOpen, setIsOpen] = useState(false);
 
   const handleDateSelect = (selectedDate?: Date) => {
-    console.log({ selectedDate });
     if (!selectedDate) return;
     const newDate = date ? new Date(date) : new Date();
     newDate.setFullYear(
@@ -73,7 +72,6 @@ export function DatetimePicker({ onChange, date }: DatetimePickerProps) {
   };
 
   const onClear = (event: React.MouseEvent) => {
-    console.log("OnClear");
     event.stopPropagation();
     onChange();
   };

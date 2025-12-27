@@ -1,5 +1,6 @@
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 
@@ -19,7 +20,8 @@ from server.index.impl.pgvector_repository import PgVectorIndexedImageRepository
 from server.index.registry import EmbedderRegistry
 from server.logger import app_logger
 from server.observer.background_embedder import BackgroundEmbedder
-from server.observer.routes import events_router
+from server.observer.path_resolver import PathResolver
+from server.observer.routes import observer_router
 from server.session.impl.default_service import DefaultSessionService
 from server.session.impl.sql_repository import SqlSessionRepository
 from server.user.impl.sql_repository import SqlUserRepository
@@ -42,14 +44,18 @@ async def bootstrap_index(
 async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     app.state.config = ServerConfig()
     app.state.event_bus = EventBus()
+    app.state.path_resolver = PathResolver(
+        watcher_config=app.state.config.watcher,
+        thumbnail_config=app.state.config.thumbnail,
+    )
     app.state.db_session = get_db_session(app.state.config.database)
     app_logger.setLevel(app.state.config.log_level)
-
     app.state.user_repository = SqlUserRepository(app.state.db_session)
     app.state.session_repository = SqlSessionRepository(app.state.db_session)
     app.state.session_service = DefaultSessionService(app.state.session_repository)
     app.state.indexed_image_repository = PgVectorIndexedImageRepository(
         app.state.db_session,
+        watched_directory=Path(app.state.config.watcher.watched_directory),
     )
 
     app.state.embedder_registry = EmbedderRegistry(app.state.config.embedder_registry)
@@ -63,12 +69,16 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
             user_repository=app.state.user_repository,
             otp_sender=app.state.otp_sender,
         )
-    app.state.indexing_service = DefaultIndexingService(
-        repository=app.state.indexed_image_repository,
-        embedder=app.state.embedder,
-    )
 
-    app.state.image_repository = FsImageRepository()
+    app.state.image_repository = FsImageRepository(
+        path_resolver=app.state.path_resolver,
+    )
+    app.state.indexing_service = DefaultIndexingService(
+        indexed_repository=app.state.indexed_image_repository,
+        embedder=app.state.embedder,
+        path_resolver=app.state.path_resolver,
+        image_repository=app.state.image_repository,
+    )
     app.state.image_service = DefaultImageService(
         image_repository=app.state.image_repository,
         indexed_image_repository=app.state.indexed_image_repository,
@@ -81,6 +91,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
         indexing_service=app.state.indexing_service,
         image_service=app.state.image_service,
         event_bus=app.state.event_bus,
+        path_resolver=app.state.path_resolver,
     )
     app.state.background_embedder.start()
     init_db(app.state.config)
@@ -100,6 +111,6 @@ def create_app() -> FastAPI:
     if app.state.config.auth.kind == "otp":
         app.include_router(otp_router)
     app.include_router(images_router)
-    app.include_router(events_router)
+    app.include_router(observer_router)
 
     return app

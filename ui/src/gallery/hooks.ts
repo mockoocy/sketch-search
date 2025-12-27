@@ -1,6 +1,7 @@
 import {
   addImage,
   deleteImage,
+  listDirectories,
   listImages,
   searchByImage,
   similaritySearch,
@@ -9,7 +10,12 @@ import {
   type FsEvent,
   type ListImagesData,
 } from "@/gallery/api";
-import type { ImageSearchQuery } from "@/gallery/schema";
+import type {
+  DirectoryNode,
+  ImageSearchQuery,
+  IndexedImage,
+} from "@/gallery/schema";
+import { findNodeByPath } from "@/gallery/utils";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 
@@ -87,7 +93,7 @@ export type UseImageSearchOptions =
   | UseListImagesOptions
   | UseImageSimilaritySearchOptions
   | UseSketchSearchOptions;
-export function useImageSearch(options: UseImageSearchOptions) {
+function useImageSearch(options: UseImageSearchOptions) {
   let queryKey: readonly unknown[];
   let queryFn: () => Promise<ListImagesData>;
 
@@ -140,4 +146,86 @@ export function useDeleteImage() {
       queryClient.invalidateQueries({ queryKey: imageQueryKeys.lists() });
     },
   });
+}
+
+function useListDirectories() {
+  return useQuery({
+    queryKey: ["directories"],
+    queryFn: listDirectories,
+  });
+}
+
+export type DirectoryRow = { kind: "directory"; directory: DirectoryNode };
+export type ImageRow = { kind: "image"; image: IndexedImage };
+export type BackRow = { kind: "back"; parentDirectory: DirectoryNode };
+
+export type GalleryRow = DirectoryRow | ImageRow | BackRow;
+
+export function useGetGalleryRows(searchOptions: UseImageSearchOptions) {
+  const imagesQuery = useImageSearch(searchOptions);
+  const directoriesQuery = useListDirectories();
+
+  const isLoading = imagesQuery.isLoading || directoriesQuery.isLoading;
+  const error = imagesQuery.error || directoriesQuery.error;
+  const rows: GalleryRow[] = [];
+  if (isLoading || error || !imagesQuery.data || !directoriesQuery.data) {
+    return {
+      isLoading,
+      error,
+      rows,
+      gallerySize: 0,
+    };
+  }
+  const { directory: directoryPath } = searchOptions.query;
+  if (directoryPath === null) {
+    const images = imagesQuery.data.images;
+    for (const image of images) {
+      rows.push({
+        kind: "image",
+        image,
+      });
+    }
+    return {
+      isLoading,
+      error,
+      rows,
+      gallerySize: imagesQuery.data?.total || 0,
+    };
+  }
+  const directories = directoriesQuery.data;
+
+  const relativeRoot = findNodeByPath(directories, directoryPath);
+  if (relativeRoot === null) {
+    return {
+      isLoading,
+      error: new Error("Directory not found"),
+      rows,
+      gallerySize: 0,
+    };
+  }
+  const parentDirectory = findNodeByPath(directories, relativeRoot.parent);
+  if (parentDirectory !== null) {
+    rows.push({
+      kind: "back",
+      parentDirectory,
+    });
+  }
+  for (const childDir of relativeRoot.children) {
+    rows.push({
+      kind: "directory",
+      directory: childDir,
+    });
+  }
+  for (const image of imagesQuery.data.images) {
+    rows.push({
+      kind: "image",
+      image,
+    });
+  }
+  return {
+    isLoading,
+    error,
+    rows,
+    gallerySize: imagesQuery.data?.total || 0,
+  };
 }
