@@ -2,8 +2,10 @@ from typing import Literal, Protocol
 
 import timm
 import torch
+import torch.nn.functional as F  # noqa: N812 - that's a convention - again :)
 import torchvision.transforms.v2 as T  # noqa: N812 - that's a convention
 from torch import nn
+from typing_extensions import Self
 
 from sktr.config.config import DEVICE
 from sktr.type_defs import (
@@ -290,6 +292,35 @@ class SupConLoss(nn.Module):
         return loss.view(anchor_count, batch_size).mean()
 
 
+class RandomMorphology(nn.Module):
+    def __init__(self, p: float = 0.35, kernel_size: int = 3) -> None:
+        super().__init__()
+        if kernel_size % 2 == 0:
+            raise ValueError("kernel_size must be odd")
+        self.p = p
+        self.kernel_size = kernel_size
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        if torch.rand(()) >= self.p:
+            return x
+
+        if x.ndim == 2:
+            x = x.unsqueeze(0)  # [1,H,W]
+
+        inv = 1.0 - x
+        inv4 = inv.unsqueeze(0)  # [1,1,H,W]
+        k = self.kernel_size
+        pad = k // 2
+
+        if torch.rand(()) < 0.5:
+            out_inv = F.max_pool2d(inv4, kernel_size=k, stride=1, padding=pad)
+        else:
+            out_inv = -F.max_pool2d(-inv4, kernel_size=k, stride=1, padding=pad)
+
+        out = 1.0 - out_inv.squeeze(0)  # [1,H,W]
+        return out.clamp(0.0, 1.0)
+
+
 class Embedder(nn.Module):
     def __init__(
         self,
@@ -370,17 +401,31 @@ class Embedder(nn.Module):
         sketch_features = self.backbone(sketch)
         return nn.functional.normalize(self.projection_head(sketch_features), dim=1)
 
+    def train(self, mode: bool = True) -> Self:
+        super().train(mode)
+        self.backbone.eval()
+        return self
+
 
 def build_photo_transform_train(size: int = 224) -> T.Compose:
     return T.Compose(
         [
-            T.RandomResizedCrop(size, scale=(0.5, 1.0)),
+            T.RandomResizedCrop(
+                size,
+                scale=(0.5, 1.0),
+                interpolation=T.InterpolationMode.BILINEAR,
+            ),
             T.RandomHorizontalFlip(p=0.5),
+            T.RandomAffine(
+                degrees=15,
+                translate=(0.10, 0.10),
+                interpolation=T.InterpolationMode.BILINEAR,
+                fill=0.0,
+            ),
             T.ColorJitter(0.4, 0.4, 0.4, 0.1),
             T.RandomGrayscale(p=0.2),
-            T.RandomRotation(degrees=15),
-            T.GaussianBlur(kernel_size=5, sigma=(0.1, 2.0)),
             T.Normalize(IMAGENET_MEAN, IMAGENET_STD),
+            T.RandomErasing(p=0.25, scale=(0.02, 0.15), ratio=(0.3, 3.3), value=0.0),
         ],
     )
 
@@ -388,11 +433,21 @@ def build_photo_transform_train(size: int = 224) -> T.Compose:
 def build_sketch_transform_train(size: int = 224) -> T.Compose:
     return T.Compose(
         [
-            T.RandomResizedCrop(size, scale=(0.5, 1.0)),
+            T.RandomResizedCrop(
+                size,
+                scale=(0.5, 1.0),
+                interpolation=T.InterpolationMode.BILINEAR,
+            ),
             T.RandomHorizontalFlip(p=0.5),
-            T.RandomRotation(degrees=15),
-            T.GaussianBlur(kernel_size=5, sigma=(0.1, 1.0)),
+            T.RandomAffine(
+                degrees=15,
+                translate=(0.10, 0.10),
+                interpolation=T.InterpolationMode.BILINEAR,
+                fill=1.0,
+            ),
+            RandomMorphology(p=0.35, kernel_size=3),
             T.Normalize([0.5], [0.5]),
+            T.RandomErasing(p=0.25, scale=(0.02, 0.15), ratio=(0.3, 3.3), value=1.0),
         ],
     )
 

@@ -48,7 +48,7 @@ def test_client(tmp_path: Path, db_session: Session) -> Generator[TestClient]:
         watcher_config=app.state.config.watcher,
     )
     app.state.indexing_service = DefaultIndexingService(
-        repository=app.state.indexed_image_repository,
+        indexed_repository=app.state.indexed_image_repository,
         embedder=DummyEmbedder(),
     )
 
