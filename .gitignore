@@ -11,8 +11,10 @@ wheels/
 
 weights/
 pidinet/
-data/images/*
-data/sketches/*
+data/supervised/images/*
+data/supervised/sketches/*
+data/unsupervised/images/*
+data/unsupervised/sketches/*
 .ruff_cache/
 .pytest_cache/
 tmp/

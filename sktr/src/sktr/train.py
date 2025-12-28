@@ -23,7 +23,7 @@ from sktr.model import (
 )
 from sktr.photo_sketch_dataset import (
     build_loader,
-    get_paired_samples_by_stem,
+    get_qmul_paired_samples,
     get_samples_from_directories,
 )
 from sktr.type_defs import Sample
@@ -254,8 +254,8 @@ def evaluate(
 
 
 def _make_optimizer(model: nn.Module) -> torch.optim.Optimizer:
-    opt_name = getattr(CFG.training, "optimizer", "adamw")
-    lr = float(getattr(CFG.training, "base_lr", 1e-3))
+    opt_name = CFG.training.optimizer
+    lr = float(CFG.training.base_lr)
     if opt_name == "adamw":
         return torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=0.05)
     return torch.optim.Adam(model.parameters(), lr=lr)
@@ -280,21 +280,21 @@ def train_phase1_dcl(
     """
     First phase is self-supervised DCL on paired instances.
     """
-    epochs = int(getattr(CFG.training, "phase1_epochs", 0))
+    epochs = int(CFG.training.phase_1.epochs)
     if epochs <= 0:
         return start_step
 
     optimizer = _make_optimizer(model)
     total_steps = epochs * len(loader)
-    warmup_steps = int(getattr(CFG.training, "phase1_warmup_steps", 0))
+    warmup_steps = CFG.training.phase_1.warmup_steps
     scheduler = build_warmup_cosine_scheduler(
         optimizer,
         total_steps=total_steps,
         warmup_steps=warmup_steps,
-        min_lr_ratio=float(getattr(CFG.training, "min_lr_ratio", 0.1)),
+        min_lr_ratio=CFG.training.min_lr_ratio,
     )
 
-    temperature = float(getattr(CFG.training, "dcl_temperature", 0.2))
+    temperature = float(CFG.training.phase_1.temperature)
 
     scaler = torch.amp.GradScaler("cuda", enabled=(DEVICE.type == "cuda"))
 
@@ -342,11 +342,13 @@ def train_phase1_dcl(
             global_step += 1
 
         out_dir = (
-            Path(getattr(CFG.training, "model_save_path", "checkpoints")) / run_name
+            Path(CFG.training.model_save_path) / run_name
         )
         out_dir.mkdir(parents=True, exist_ok=True)
         torch.save(model.state_dict(), out_dir / f"phase1_epoch_{epoch + 1}.pth")
-
+    del optimizer, scheduler, scaler
+    torch.cuda.empty_cache()
+    gc.collect()
     return global_step
 
 
@@ -359,23 +361,23 @@ def train_phase2_supcon(
     *,
     start_step: int = 0,
 ) -> None:
-    epochs = int(getattr(CFG.training, "epochs", 10))
+    epochs = int(CFG.training.phase_2.epochs)
     optimizer = _make_optimizer(model)
     total_steps = epochs * len(train_loader)
-    warmup_steps = int(getattr(CFG.training, "warmup_steps", 0))
+    warmup_steps = CFG.training.phase_2.warmup_steps
     scheduler = build_warmup_cosine_scheduler(
         optimizer,
         total_steps=total_steps,
         warmup_steps=warmup_steps,
-        min_lr_ratio=float(getattr(CFG.training, "min_lr_ratio", 0.1)),
+        min_lr_ratio=CFG.training.min_lr_ratio,
     )
 
     sup_con_loss = SupConLoss(
-        temperature=float(getattr(CFG.training, "supcon_temperature", 0.1)),
+        temperature=float(CFG.training.phase_2.temperature),
     )
     scaler = torch.amp.GradScaler("cuda", enabled=(DEVICE.type == "cuda"))
 
-    eval_every = int(getattr(CFG.validation, "eval_every_steps", 500))
+    eval_every = CFG.validation.eval_every_steps
 
     global_step = start_step
     model.train()
@@ -470,7 +472,7 @@ def train_phase2_supcon(
                 if eval_metrics.mean_average_precision_at_10 > best_map10:
                     best_map10 = eval_metrics.mean_average_precision_at_10
                     out_dir = (
-                        Path(getattr(CFG.training, "model_save_path", "checkpoints"))
+                        Path(CFG.training.model_save_path)
                         / run_name
                     )
                     out_dir.mkdir(parents=True, exist_ok=True)
@@ -479,7 +481,7 @@ def train_phase2_supcon(
             global_step += 1
 
         out_dir = (
-            Path(getattr(CFG.training, "model_save_path", "checkpoints")) / run_name
+            Path(CFG.training.model_save_path) / run_name
         )
         out_dir.mkdir(parents=True, exist_ok=True)
         torch.save(model.state_dict(), out_dir / f"phase2_epoch_{epoch + 1}.pth")
@@ -504,34 +506,34 @@ def train() -> None:
     # =========
     # Phase 1: DCL on paired data (no train/val/test split)
     # =========
-    phase1_epochs = int(getattr(CFG.training, "phase1_epochs", 0))
+    phase1_epochs = int(CFG.training.phase_1.epochs)
     global_step = 0
     if phase1_epochs > 0:
         phase1_images = Path(
-            getattr(CFG.training, "phase1_images_path", CFG.training.images_path),
+            CFG.training.phase_1.images_path,
         )
         phase1_sketches = Path(
-            getattr(CFG.training, "phase1_sketches_path", CFG.training.sketches_path),
+            CFG.training.phase_1.sketches_path,
         )
-        phase1_fraction = float(
-            getattr(CFG.training, "phase1_fraction_of_samples", 1.0),
+        # ignored for now, time is running short :))
+        _phase1_fraction = float(
+            CFG.training.phase_1.fraction_of_samples,
         )
 
-        phase1_samples = get_paired_samples_by_stem(
+        phase1_samples = get_qmul_paired_samples(
             images_root=phase1_images,
             sketches_root=phase1_sketches,
-            per_category_fraction=phase1_fraction,
         )
         phase1_loader = build_loader(
             samples=phase1_samples,
             use_class_balanced_sampler=False,
             batch_size=int(
-                getattr(CFG.training, "phase1_batch_size", CFG.training.batch_size),
+                CFG.training.batch_size,
             ),
             shuffle=True,
             photo_transform=build_photo_transform_train(),
             sketch_transform=build_sketch_transform_train(),
-            num_workers=int(getattr(CFG.training, "num_workers", 6)),
+            num_workers=CFG.training.num_workers,
             persistent_workers=True,
             drop_last=True,
         )
@@ -547,9 +549,9 @@ def train() -> None:
     # Phase 2: SupCon on labeled data (train/val/test split)
     # =========
     train_samples, val_samples, _test_samples = get_samples_from_directories(
-        images_root=Path(CFG.training.images_path),
-        sketches_root=Path(CFG.training.sketches_path),
-        per_category_fraction=CFG.training.fraction_of_samples,
+        images_root=Path(CFG.training.phase_2.images_path),
+        sketches_root=Path(CFG.training.phase_2.sketches_path),
+        per_category_fraction=CFG.training.phase_2.fraction_of_samples,
         val_fraction=CFG.validation.validation_fraction,
         test_fraction=CFG.training.test_fraction,
     )
@@ -559,7 +561,7 @@ def train() -> None:
         batch_size=CFG.training.batch_size,
         photo_transform=build_photo_transform_train(),
         sketch_transform=build_sketch_transform_train(),
-        num_workers=int(getattr(CFG.training, "num_workers", 6)),
+        num_workers=CFG.training.num_workers,
     )
     val_loader: DataLoader[Sample] = build_loader(
         samples=val_samples,
@@ -568,7 +570,7 @@ def train() -> None:
         photo_transform=build_photo_transform_eval(),
         sketch_transform=build_sketch_transform_eval(),
         drop_last=False,
-        num_workers=int(getattr(CFG.training, "num_workers", 6)),
+        num_workers=CFG.training.num_workers,
         prefetch_factor=2,
         persistent_workers=False,
         shuffle=False,

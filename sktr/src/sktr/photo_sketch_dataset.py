@@ -276,44 +276,45 @@ def get_samples_from_directories(  # noqa: PLR0913
     return train_samples, val_samples, test_samples
 
 
-def get_paired_samples_by_stem(
+def get_qmul_paired_samples(
     images_root: Path,
     sketches_root: Path,
-    per_category_fraction: float = 1.0,
-    seed: int = 42,
 ) -> list[SamplePath]:
-    rng = random.Random(seed)  # noqa: S311
-    samples = list[SamplePath]()
+    """
+    QMUL FG-SBIR pairing:
+    - photo: <instance_id>.png
+    - sketches: <instance_id>_<k>.png
+    """
+    photos = {
+        p.stem: p
+        for p in images_root.iterdir()
+        if p.suffix[1:].lower() in IMG_EXTENSIONS
+    }
 
-    category_dirs = [d for d in images_root.iterdir() if d.is_dir()]
-    for cat_dir in category_dirs:
-        sk_dir = sketches_root / cat_dir.name
-        if not sk_dir.exists() or not sk_dir.is_dir():
+    paired = list[SamplePath]()
+
+    for sk in sketches_root.iterdir():
+        format = sk.suffix[1:].lower()
+        if format not in IMG_EXTENSIONS:
             continue
 
-        img_files = [
-            p for p in cat_dir.glob("*") if p.suffix[1:].lower() in IMG_EXTENSIONS
-        ]
-        sk_files = [
-            p for p in sk_dir.glob("*") if p.suffix[1:].lower() in IMG_EXTENSIONS
-        ]
-
-        img_by_stem = {p.stem: p for p in img_files}
-        sk_by_stem = {p.stem: p for p in sk_files}
-        common = list(set(img_by_stem.keys()) & set(sk_by_stem.keys()))
-        if not common:
+        stem = sk.stem
+        if "_" not in stem:
             continue
 
-        rng.shuffle(common)
-        take = max(1, int(len(common) * per_category_fraction))
-        for stem in common[:take]:
-            samples.append(
-                SamplePath(
-                    photo=img_by_stem[stem],
-                    sketch=sk_by_stem[stem],
-                    category=cat_dir.name,
-                ),
+        instance_id = stem.rsplit("_", 1)[0]
+
+        photo = photos.get(instance_id)
+        if photo is None:
+            continue
+        else:
+            print("pairing sketch:", sk, "with photo:", photo)
+        paired.append(
+            SamplePath(
+                photo=photo,
+                sketch=sk,
+                category=instance_id,  # instance-level label
             )
+        )
 
-    rng.shuffle(samples)
-    return samples
+    return paired
