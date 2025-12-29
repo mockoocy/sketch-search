@@ -343,6 +343,7 @@ def train_phase2_supcon(
     eval_every = CFG.validation.eval_every_steps
 
     global_step = start_step
+    end_step = start_step + epochs * len(train_loader)
     model.train()
 
     best_map10 = -1.0
@@ -386,7 +387,7 @@ def train_phase2_supcon(
                 )
                 pbar.set_postfix({"loss": float(loss.detach())})
 
-            is_last_step = (global_step + 1) % len(train_loader) == 0
+            is_last_step = global_step == end_step - 1
             do_eval = (
                 (global_step + 1) % eval_every == 0
                 or global_step == start_step
