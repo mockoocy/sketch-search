@@ -296,7 +296,7 @@ def make_optimizer(model: nn.Module) -> torch.optim.Optimizer:
     opt_name = CFG.training.optimizer
     lr = float(CFG.training.base_lr)
     if opt_name == "adamw":
-        return torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=0.05)
+        return torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=0.05, fused=True)
     return torch.optim.Adam(model.parameters(), lr=lr)
 
 
