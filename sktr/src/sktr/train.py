@@ -520,6 +520,7 @@ def train() -> None:
         photo_transform=build_photo_transform_train(),
         sketch_transform=build_sketch_transform_train(),
         num_workers=CFG.training.num_workers,
+        samples_per_class=CFG.training.phase_2.samples_per_class,
     )
     val_loader: DataLoader[Sample] = build_loader(
         samples=val_samples,

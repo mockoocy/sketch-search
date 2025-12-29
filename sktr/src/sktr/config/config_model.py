@@ -10,6 +10,8 @@ class TrainingPhaseSettings(BaseModel):
     epochs: int = Field(default=1, gt=0)
     warmup_steps: int = Field(default=0, ge=0)
 
+class TrainingPhase2Settings(TrainingPhaseSettings):
+    samples_per_class: int = Field(default=4, ge=1)
 class TrainingSettings(BaseModel):
     base_lr: float = Field(default=1e-3, gt=0.0)
     min_lr_ratio: float = Field(default=0.1, gt=0.0, le=1.0)
@@ -19,7 +21,7 @@ class TrainingSettings(BaseModel):
     test_fraction: float = Field(default=0.0, ge=0.0, le=1.0)
     model_save_path: str = "./models/"
     phase_1: TrainingPhaseSettings = TrainingPhaseSettings()
-    phase_2: TrainingPhaseSettings = TrainingPhaseSettings(
+    phase_2: TrainingPhase2Settings = TrainingPhase2Settings(
         sketches_path="./data/supervised/sketches/",
         images_path="./data/supervised/images/",
         temperature=0.07,

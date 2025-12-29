@@ -102,43 +102,49 @@ class ClassBalancedBatchSampler(Sampler[list[int]]):
         drop_last: bool = True,
         seed: int = 42,
     ) -> None:
-        self.by_cls: dict[str, list[int]] = defaultdict(list)
-        for i, s in enumerate(samples):
-            self.by_cls[s.category].append(i)
-        self.classes = list(self.by_cls.keys())
-        self.cpb = classes_per_batch
-        self.spc = samples_per_class
-        self.bs = self.cpb * self.spc
+        self.samples = samples
+        self.classes_per_batch = classes_per_batch
+        self.samples_per_class = samples_per_class
         self.drop_last = drop_last
-        self.rng = random.Random(seed)  # noqa: S311 - not a cryptographic use
-        for v in self.by_cls.values():
-            self.rng.shuffle(v)
-        total = sum(len(v) for v in self.by_cls.values())
-        self.n = total // self.bs if drop_last else np.ceil(total / self.bs)
-        self.ptr = dict.fromkeys(self.classes, 0)
+        self.rng = random.Random(seed)
 
-    def __iter__(self) -> Generator[list[int]]:
-        for _ in range(self.n):
-            if len(self.classes) >= self.cpb:
-                chosen = self.rng.sample(self.classes, self.cpb)
-            else:
-                chosen = [self.classes[i % len(self.classes)] for i in range(self.cpb)]
+        self.by_class: dict[str, list[int]] = defaultdict(list)
+        for i, s in enumerate(samples):
+            self.by_class[s.category].append(i)
+
+        self.classes = list(self.by_class.keys())
+        self.num_classes = len(self.classes)
+
+        self.classes_per_batch = min(self.classes_per_batch, self.num_classes)
+        self.batch_size = self.classes_per_batch * self.samples_per_class
+
+        total = len(samples)
+        self.num_batches = total // self.batch_size if drop_last else np.ceil(
+            total / self.batch_size
+        )
+
+    def __len__(self) -> int:
+        return self.num_batches
+
+    def __iter__(self):
+        for _ in range(self.num_batches):
+            chosen_classes = self.rng.sample(self.classes, self.classes_per_batch)
+
             batch: list[int] = []
-            for c in chosen:
-                arr = self.by_cls[c]
-                start = self.ptr[c]
-                end = start + self.spc
-                if end > len(arr):
-                    need = end - len(arr)
-                    arr = arr + self.rng.choices(arr, k=need)
-                    self.by_cls[c] = arr
-                batch.extend(arr[start:end])
-                self.ptr[c] = end
+
+            for c in chosen_classes:
+                indices = self.by_class[c]
+
+                if len(indices) >= self.samples_per_class:
+                    picked = self.rng.sample(indices, self.samples_per_class)
+                else:
+                    # sample with replacement if class is small
+                    picked = self.rng.choices(indices, k=self.samples_per_class)
+                batch.extend(picked)
+
             self.rng.shuffle(batch)
             yield batch
 
-    def __len__(self) -> int:
-        return self.n
 
 
 def build_loader(  # noqa: PLR0913
@@ -154,6 +160,7 @@ def build_loader(  # noqa: PLR0913
     sketch_as_rgb: bool = False,
     drop_last: bool = True,
     persistent_workers: bool = True,
+    samples_per_class: int = 4,
 ) -> DataLoader[Sample]:
     """
     Returns a DataLoader ready for training/testing loops.
@@ -170,8 +177,8 @@ def build_loader(  # noqa: PLR0913
         batch_size=batch_size if not use_class_balanced_sampler else 1,
         batch_sampler=ClassBalancedBatchSampler(
             samples,
-            classes_per_batch=max(1, batch_size // 4),
-            samples_per_class=4,
+            classes_per_batch=max(1, batch_size // samples_per_class),
+            samples_per_class=samples_per_class,
             drop_last=drop_last,
         )
         if use_class_balanced_sampler
