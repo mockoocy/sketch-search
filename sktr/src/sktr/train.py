@@ -10,6 +10,8 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
+from sktr.metrics import compute_map_at_k_chunked
+
 from sktr.config.config import CFG, DEVICE
 from sktr.model import (
     Embedder,
@@ -43,8 +45,8 @@ class EvaluationMetrics:
 
 def log_projector_embeddings(
     writer: SummaryWriter,
-    photo_embeddings: torch.Tensor,
-    sketch_embeddings: torch.Tensor,
+    pe: torch.Tensor,
+    se: torch.Tensor,
     photo_labels: torch.Tensor,
     sketch_labels: torch.Tensor,
     *,
@@ -52,9 +54,6 @@ def log_projector_embeddings(
     max_points: int = 2000,
     seed: int = 42,
 ) -> None:
-    pe = nn.functional.normalize(photo_embeddings.float(), dim=1)
-    se = nn.functional.normalize(sketch_embeddings.float(), dim=1)
-
     x = torch.cat([pe, se], dim=0)
     y = torch.cat([photo_labels, sketch_labels], dim=0)
 
@@ -120,44 +119,6 @@ def _create_class_mask(labels: list[str]) -> torch.Tensor:
 
 
 @torch.no_grad()
-def _compute_map_at_k(
-    sims: torch.Tensor,
-    query_labels: torch.Tensor,
-    gallery_labels: torch.Tensor,
-    ks: tuple[int, ...] = (10, 30),
-) -> dict[int, tuple[float, float]]:
-    """
-    Returns {k: (mAP@k, Precision@k)} for cosine similarity matrix sims [Q,G].
-    """
-    k_max = max(ks)
-    topk = torch.topk(sims, k=k_max, dim=1).indices  # [Q,k_max]
-
-    rel = query_labels.unsqueeze(1) == gallery_labels.unsqueeze(0)  # [Q,G]
-    rel_at_kmax = torch.gather(rel, 1, topk)  # [Q,k_max]
-
-    out: dict[int, tuple[float, float]] = {}
-    for k in ks:
-        rel_at_k = rel_at_kmax[:, :k]  # [Q,k]
-
-        # Precision@k
-        prec_k = (rel_at_k.float().sum(dim=1) / float(k)).mean().item()
-
-        # mAP@k
-        csum = torch.cumsum(rel_at_k.int(), dim=1)
-        ranks = torch.arange(1, k + 1, device=sims.device).unsqueeze(0)
-        prec_at_r = csum.float() / ranks.float()
-        ap_num = (prec_at_r * rel_at_k.float()).sum(dim=1)
-
-        denom = rel.sum(dim=1).float()
-        denom = torch.minimum(denom, torch.tensor(float(k), device=sims.device))
-        denom = torch.clamp_min(denom, 1.0)
-
-        map_k = (ap_num / denom).mean().item()
-        out[k] = (map_k, prec_k)
-    return out
-
-
-@torch.no_grad()
 def evaluate(
     val_loader: DataLoader[Sample],
     model: Embedder,
@@ -215,21 +176,25 @@ def evaluate(
 
     assert photo_embeddings is not None and sketch_embeddings is not None
 
-    photo_embeddings = nn.functional.normalize(photo_embeddings, dim=1)
-    sketch_embeddings = nn.functional.normalize(sketch_embeddings, dim=1)
     sims = sketch_embeddings @ photo_embeddings.t()  # [Q,G]
 
-    metrics = _compute_map_at_k(
-        sims=sims,
+    metrics = compute_map_at_k_chunked(
+        query_emb=sketch_embeddings,
         query_labels=sketch_category_ids,
+        gallery_emb=photo_embeddings,
         gallery_labels=photo_category_ids,
         ks=(10, 30),
+        chunk_size=128,
     )
 
     map10, p10 = metrics[10]
     map30, p30 = metrics[30]
     del sims
     if writer is not None:
+        # moving to CPU to free GPU memory
+        # projector does not need GPU
+        photo_embeddings = photo_embeddings.cpu()
+        sketch_embeddings = sketch_embeddings.cpu()
         log_projector_embeddings(
             writer,
             photo_embeddings,
@@ -341,9 +306,7 @@ def train_phase1_dcl(
 
             global_step += 1
 
-        out_dir = (
-            Path(CFG.training.model_save_path) / run_name
-        )
+        out_dir = Path(CFG.training.model_save_path) / run_name
         out_dir.mkdir(parents=True, exist_ok=True)
         torch.save(model.state_dict(), out_dir / f"phase1_epoch_{epoch + 1}.pth")
     del optimizer, scheduler, scaler
@@ -471,18 +434,13 @@ def train_phase2_supcon(
                 # best checkpoint by mAP@10
                 if eval_metrics.mean_average_precision_at_10 > best_map10:
                     best_map10 = eval_metrics.mean_average_precision_at_10
-                    out_dir = (
-                        Path(CFG.training.model_save_path)
-                        / run_name
-                    )
+                    out_dir = Path(CFG.training.model_save_path) / run_name
                     out_dir.mkdir(parents=True, exist_ok=True)
                     torch.save(model.state_dict(), out_dir / "best_phase2_by_map10.pth")
 
             global_step += 1
 
-        out_dir = (
-            Path(CFG.training.model_save_path) / run_name
-        )
+        out_dir = Path(CFG.training.model_save_path) / run_name
         out_dir.mkdir(parents=True, exist_ok=True)
         torch.save(model.state_dict(), out_dir / f"phase2_epoch_{epoch + 1}.pth")
 

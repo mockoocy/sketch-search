@@ -307,8 +307,6 @@ def get_qmul_paired_samples(
         photo = photos.get(instance_id)
         if photo is None:
             continue
-        else:
-            print("pairing sketch:", sk, "with photo:", photo)
         paired.append(
             SamplePath(
                 photo=photo,
