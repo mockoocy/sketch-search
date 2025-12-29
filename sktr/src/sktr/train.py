@@ -390,6 +390,7 @@ def train_phase2_supcon(
             is_last_step = global_step == end_step - 1
             do_eval = (
                 (global_step + 1) % eval_every == 0
+                or global_step % (len(train_loader) - 1) == 0
                 or global_step == start_step
                 or is_last_step
             )
