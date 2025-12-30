@@ -282,14 +282,22 @@ def get_samples_from_directories(  # noqa: PLR0913
 
 
 
-def get_qmul_paired_samples(
+def get_paired_samples(
     images_root: Path,
     sketches_root: Path,
+    fraction: float = 1.0,
+    seed: int = 42,
 ) -> list[SamplePath]:
     """
+
+    Assemble list of paired samples from the given directories.
+
     QMUL FG-SBIR pairing:
     - photo: <instance_id>.png
     - sketches: <instance_id>_<k>.png
+
+    It also works with modified Sketchy dataset prepared with
+    `preprocess_sketchy.py`.
     """
     photos = {
         p.stem: p
@@ -320,5 +328,9 @@ def get_qmul_paired_samples(
                 category=instance_id,  # instance-level label
             )
         )
+    rng = random.Random(seed)
+    rng.shuffle(paired)
+    target = int(len(paired) * fraction)
+    paired = paired[:target]
     print(f"Got {len(paired)} instance-level pairs")
     return paired

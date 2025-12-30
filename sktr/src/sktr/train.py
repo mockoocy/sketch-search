@@ -26,7 +26,7 @@ from sktr.model import (
 )
 from sktr.photo_sketch_dataset import (
     build_loader,
-    get_qmul_paired_samples,
+    get_paired_samples,
     get_samples_from_directories,
 )
 from sktr.type_defs import Sample
@@ -684,9 +684,10 @@ def build_phase1_loader() -> Optional[DataLoader[Sample]]:
     if epochs <= 0:
         return None
 
-    phase1_samples = get_qmul_paired_samples(
+    phase1_samples = get_paired_samples(
         images_root=Path(CFG.training.phase_1.images_path),
         sketches_root=Path(CFG.training.phase_1.sketches_path),
+        fraction=float(CFG.training.phase_1.fraction_of_samples),
     )
 
     return build_loader(
