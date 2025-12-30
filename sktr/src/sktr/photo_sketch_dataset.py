@@ -111,7 +111,6 @@ class ClassBalancedBatchSampler(Sampler[list[int]]):
         self.by_class: dict[str, list[int]] = defaultdict(list)
         for i, s in enumerate(samples):
             self.by_class[s.category].append(i)
-
         self.classes = list(self.by_class.keys())
         self.num_classes = len(self.classes)
 
@@ -199,9 +198,8 @@ def get_samples_from_directories(  # noqa: PLR0913
     sketches_root: Path,
     per_category_fraction: float = 1.0,
     val_fraction: float = 0.1,
-    test_fraction: float = 0.1,
     seed: int = 42,
-) -> tuple[list[SamplePath], list[SamplePath], list[SamplePath]]:
+) -> tuple[list[SamplePath], list[SamplePath]]:
     """Assembles collection of (image, sketch) pairs.
 
     These pairs are created with respect to the categories.
@@ -225,62 +223,63 @@ def get_samples_from_directories(  # noqa: PLR0913
 
     Returns:
         A tuple of three lists of (image, sketch) path pairs:
-        (train_samples, val_samples, test_samples)
+        (train_samples, val_samples)
     """
-    all_samples: defaultdict[str, list[SamplePath]] = defaultdict(list)
-    random.seed(seed)
-    category_dirs = [
-        directory for directory in images_root.iterdir() if directory.is_dir()
-    ]
-    for category_dir in category_dirs:
-        image_files = [
-            file
-            for file in (category_dir).glob("*")
-            if file.suffix[1:].lower() in IMG_EXTENSIONS
-        ]
-        sketch_category = sketches_root / category_dir.name
-        sketch_files = [
-            file
-            for file in sketch_category.glob("*")
-            if file.suffix[1:].lower() in IMG_EXTENSIONS
-        ]
-        number_of_samples = max(4, int(per_category_fraction * len(sketch_files)))
-        for sketch_path, image_path in zip(
-            sketch_files,
-            random.choices(image_files, k=number_of_samples),  # noqa: S311 - not a cryptographic use
-            strict=False,
-        ):
-            all_samples[category_dir.name].append(
-                SamplePath(
-                    photo=image_path,
-                    sketch=sketch_path,
-                    category=category_dir.name,
-                ),
-            )
+    rng = random.Random(seed)
 
-    random.shuffle(category_dirs)
-    unseen_classes_count = int(len(category_dirs) * (val_fraction + test_fraction))
-    unseen_classes = {
-        category_dir.name for category_dir in category_dirs[:unseen_classes_count]
-    }
-    unseen_test_fraction = (
-        test_fraction / (val_fraction + test_fraction)
-        if (val_fraction + test_fraction) > 0
-        else 0.0
+    categories = sorted(
+        dir.name
+        for dir in images_root.iterdir()
+        if dir.is_dir() and (sketches_root / dir.name).is_dir()
     )
+    rng.shuffle(categories)
+    n_val = int(round(len(categories) * val_fraction))
+    val_cats = set(categories[:n_val])
 
-    train_samples: list[SamplePath] = []
-    val_samples: list[SamplePath] = []
-    test_samples: list[SamplePath] = []
-    for category_dir, samples in all_samples.items():
-        if category_dir not in unseen_classes:
-            train_samples.extend(samples)
+    train_samples = list[SamplePath]()
+    val_samples = list[SamplePath]()
+    for cat in categories:
+        img_dir = images_root / cat
+        sk_dir = sketches_root / cat
+
+        image_files = sorted(
+            path for path in img_dir.iterdir()
+            if path.is_file() and path.suffix[1:].lower() in IMG_EXTENSIONS
+        )
+        sketch_files = sorted(
+            path for path in sk_dir.iterdir()
+            if path.is_file() and path.suffix[1:].lower() in IMG_EXTENSIONS
+        )
+
+        if not image_files or not sketch_files:
             continue
-        random.shuffle(samples)
-        split_idx = int(len(samples) * unseen_test_fraction)
-        test_samples.extend(samples[:split_idx])
-        val_samples.extend(samples[split_idx:])
-    return train_samples, val_samples, test_samples
+
+        target = max(4, int(per_category_fraction * len(sketch_files)))
+
+        if target <= len(sketch_files):
+            chosen_sketches = sketch_files[:]
+            rng.shuffle(chosen_sketches)
+            chosen_sketches = chosen_sketches[:target]
+        else:
+            chosen_sketches = rng.choices(sketch_files, k=target)
+
+        pairs = [
+            SamplePath(
+                photo=rng.choice(image_files),
+                sketch=sk,
+                category=cat,
+            )
+            for sk in chosen_sketches
+        ]
+
+        if cat in val_cats:
+            val_samples.extend(pairs)
+        else:
+            train_samples.extend(pairs)
+    print(f"Got {len(train_samples)} train samples split into {len(categories) - n_val} categories")
+    print(f"Got {len(val_samples)} val samples split into {n_val} categories")
+    return train_samples, val_samples
+
 
 
 def get_qmul_paired_samples(
@@ -321,5 +320,5 @@ def get_qmul_paired_samples(
                 category=instance_id,  # instance-level label
             )
         )
-
+    print(f"Got {len(paired)} instance-level pairs")
     return paired

@@ -146,6 +146,92 @@ class CallbackList:
             cb.on_run_end()
 
 
+
+
+@dataclass(frozen=True)
+class EarlyStopConfig:
+    monitor: str = "mAP@10"
+    mode: str = "max"
+    patience: int = 3
+    min_delta: float = 0.1
+    warmup_evals: int = 1
+
+
+class StopTraining(Exception):
+    pass
+
+
+class EarlyStopCallback(Callback):
+    def __init__(self, cfg: EarlyStopConfig) -> None:
+        self.cfg = cfg
+        self._best: Optional[float] = None
+        self._bad_evals = 0
+        self._evals_seen = 0
+        self.should_stop = False
+
+    def on_run_start(self, run_name: str) -> None:
+        return
+
+    def on_phase_start(self, phase_name: str, start_step: int, total_steps: int) -> None:
+        return
+
+    def on_step_end(self, state) -> None:
+        return
+
+    def _read_metric(self, result: EvalResult) -> float:
+        m = result.metrics
+        if self.cfg.monitor == "loss":
+            return float(m.loss)
+        if self.cfg.monitor == "mAP@10":
+            return float(m.mean_average_precision_at_10)
+        if self.cfg.monitor == "mAP@30":
+            return float(m.mean_average_precision_at_30)
+        if self.cfg.monitor == "P@10":
+            return float(m.precision_at_10)
+        if self.cfg.monitor == "P@30":
+            return float(m.precision_at_30)
+        raise ValueError(f"Unknown monitor metric: {self.cfg.monitor}")
+
+    def _is_improvement(self, value: float) -> bool:
+        if self._best is None:
+            return True
+        if self.cfg.mode == "max":
+            return value > (self._best + self.cfg.min_delta)
+        if self.cfg.mode == "min":
+            return value < (self._best - self.cfg.min_delta)
+        raise ValueError(f"Unknown mode: {self.cfg.mode}")
+
+    def on_eval_end(self, phase_name: str, global_step: int, result: EvalResult, model: nn.Module) -> None:
+
+        self._evals_seen += 1
+        if self._evals_seen <= self.cfg.warmup_evals:
+            return
+
+        value = self._read_metric(result)
+
+        if self._is_improvement(value):
+            self._best = value
+            self._bad_evals = 0
+            return
+
+        self._bad_evals += 1
+        if self._bad_evals >= self.cfg.patience:
+            self.should_stop = True
+            raise StopTraining(
+                f"Early stopping on {phase_name} at step={global_step + 1}: "
+                f"{self.cfg.monitor} did not improve for {self.cfg.patience} evals "
+                f"(best={self._best}, last={value})."
+            )
+
+    def on_epoch_end(self, phase_name: str, epoch: int, model: nn.Module) -> None:
+        return
+
+    def on_phase_end(self, phase_name: str, end_step: int) -> None:
+        return
+
+    def on_run_end(self) -> None:
+        return
+
 def log_projector_embeddings(
     writer: SummaryWriter,
     payload: ProjectorPayload,
@@ -424,10 +510,11 @@ class Phase(Protocol):
 
 
 class Phase1Dcl:
-    def __init__(self, loader: DataLoader[Sample]) -> None:
+    def __init__(self, loader: DataLoader[Sample], evaluator: Evaluator) -> None:
         self.name = "phase1"
         self._loader = loader
         self._temperature = float(CFG.training.phase_1.temperature)
+        self._evaluator = evaluator
 
     def epochs(self) -> int:
         return int(CFG.training.phase_1.epochs)
@@ -454,18 +541,18 @@ class Phase1Dcl:
         return StepResult(loss=loss)
 
     def should_eval(self, epoch: int, step_in_epoch: int, global_step: int, steps_in_phase: int) -> bool:
-        return False
+        return step_in_epoch == (steps_in_phase - 1)
 
     def eval_step(self, model: Embedder, global_step: int, steps_in_phase: int) -> Optional[EvalResult]:
-        return None
+        return self._evaluator.run(model, SupConLoss(temperature=self._temperature), include_projector=False)
 
 
 class Phase2SupCon:
-    def __init__(self, train_loader: DataLoader[Sample], val_loader: DataLoader[Sample]) -> None:
+    def __init__(self, train_loader: DataLoader[Sample],evaluator: Evaluator) -> None:
         self.name = "phase2"
         self._train_loader = train_loader
         self._loss_fn = SupConLoss(temperature=float(CFG.training.phase_2.temperature))
-        self._evaluator = Evaluator(val_loader)
+        self._evaluator = evaluator
         self._eval_every = int(CFG.validation.eval_every_steps)
 
     def epochs(self) -> int:
@@ -616,12 +703,11 @@ def build_phase1_loader() -> Optional[DataLoader[Sample]]:
 
 
 def build_phase2_loaders() -> tuple[DataLoader[Sample], DataLoader[Sample]]:
-    train_samples, val_samples, _test_samples = get_samples_from_directories(
+    train_samples, val_samples = get_samples_from_directories(
         images_root=Path(CFG.training.phase_2.images_path),
         sketches_root=Path(CFG.training.phase_2.sketches_path),
         per_category_fraction=CFG.training.phase_2.fraction_of_samples,
         val_fraction=CFG.validation.validation_fraction,
-        test_fraction=CFG.training.test_fraction,
     )
 
     train_loader = build_loader(
@@ -660,6 +746,7 @@ def train() -> None:
         TensorBoardCallback(writer),
         ConsoleCallback(),
         CheckpointCallback(out_dir),
+        EarlyStopCallback(EarlyStopConfig())
     ]
 
     model = build_model()
@@ -667,11 +754,19 @@ def train() -> None:
     phases: list[Phase] = []
 
     phase1_loader = build_phase1_loader()
-    if phase1_loader is not None:
-        phases.append(Phase1Dcl(phase1_loader))
-
     train_loader, val_loader = build_phase2_loaders()
-    phases.append(Phase2SupCon(train_loader, val_loader))
+    # evaluator will be used in both phases
+    # but "phase 2" semantic makes sense, as it will
+    # be used in a class-based manner
+    evaluator = Evaluator(val_loader)
+
+    if phase1_loader is not None:
+        phases.append(Phase1Dcl(phase1_loader, evaluator))
+
+    phases.append(Phase2SupCon(train_loader, evaluator))
 
     engine = Engine(model, callbacks)
-    engine.run(run_name, phases, start_step=0)
+    try:
+        engine.run(run_name, phases, start_step=0)
+    except StopTraining as e:
+        print(str(e))
