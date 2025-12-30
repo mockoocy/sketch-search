@@ -32,19 +32,6 @@ from sktr.photo_sketch_dataset import (
 from sktr.type_defs import Sample
 
 
-def configure_torch() -> None:
-    torch.backends.cudnn.benchmark = True
-    if DEVICE.type == "cuda":
-        torch.backends.cuda.matmul.fp32_precision = "tf32"
-        torch.backends.cudnn.conv.fp32_precision = "tf32"
-
-
-
-def autocast_ctx() -> Any:
-    enabled = DEVICE.type == "cuda"
-    if not enabled:
-        return nullcontext()
-    return torch.autocast(device_type=DEVICE.type, dtype=torch.bfloat16, enabled=True)
 
 
 def cuda_cleanup() -> None:
@@ -378,12 +365,12 @@ class CheckpointCallback:
         return
 
 
-def make_optimizer(model: nn.Module) -> torch.optim.Optimizer:
-    opt_name = CFG.training.optimizer
-    lr = float(CFG.training.base_lr)
-    if opt_name == "adamw":
-        return torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=0.05, fused=True)
-    return torch.optim.Adam(model.parameters(), lr=lr)
+def make_optimizer(model: nn.Module, lr: float) -> torch.optim.Optimizer:
+    params = [param for param in model.parameters() if param.requires_grad]
+    if CFG.training.optimizer == "adamw":
+        return torch.optim.AdamW(params, lr=lr, weight_decay=0.05, fused=True)
+    return torch.optim.Adam(params, lr=lr)
+
 
 
 def build_warmup_cosine_scheduler(
@@ -437,11 +424,10 @@ class Evaluator:
             photos = batch["photo"].to(DEVICE, non_blocking=True)
             sketches = batch["sketch"].to(DEVICE, non_blocking=True)
 
-            with autocast_ctx():
-                pe, se = model(photos, sketches)
-                ids = to_ids(batch["categories"])
-                mask = ids.unsqueeze(0) == ids.unsqueeze(1)
-                loss = loss_fn(pairviews(torch.cat([pe, se], dim=0)), mask=mask)
+            pe, se = model(photos, sketches)
+            ids = to_ids(batch["categories"])
+            mask = ids.unsqueeze(0) == ids.unsqueeze(1)
+            loss = loss_fn(pairviews(torch.cat([pe, se], dim=0)), mask=mask)
 
             bsz = pe.size(0)
             total_loss += float(loss) * bsz
@@ -500,10 +486,11 @@ class Evaluator:
 
 class Phase(Protocol):
     name: str
-
     def epochs(self) -> int: ...
     def train_loader(self) -> DataLoader[Sample]: ...
-    def make_scheduler(self, optimizer: torch.optim.Optimizer, total_steps: int) -> torch.optim.lr_scheduler.LambdaLR: ...
+    def warmup_steps(self) -> int: ...
+    def lr(self) -> float: ...
+    def min_lr_ratio(self) -> float: ...
     def train_step(self, model: Embedder, batch: dict[str, Any]) -> StepResult: ...
     def should_eval(self, epoch: int, step_in_epoch: int, global_step: int, steps_in_phase: int) -> bool: ...
     def eval_step(self, model: Embedder, global_step: int, steps_in_phase: int) -> Optional[EvalResult]: ...
@@ -527,16 +514,15 @@ class Phase1Dcl:
             optimizer,
             total_steps=total_steps,
             warmup_steps=int(CFG.training.phase_1.warmup_steps),
-            min_lr_ratio=float(CFG.training.min_lr_ratio),
+            min_lr_ratio=float(CFG.training.phase_1.min_lr_ratio),
         )
 
     def train_step(self, model: Embedder, batch: dict[str, Any]) -> StepResult:
         photo = batch["photo"].to(DEVICE, non_blocking=True)
         sketch = batch["sketch"].to(DEVICE, non_blocking=True)
 
-        with autocast_ctx():
-            pe, se = model(photo, sketch)
-            loss = dcl_loss(pe, se, temperature=self._temperature)
+        pe, se = model(photo, sketch)
+        loss = dcl_loss(pe, se, temperature=self._temperature)
 
         return StepResult(loss=loss)
 
@@ -546,6 +532,14 @@ class Phase1Dcl:
     def eval_step(self, model: Embedder, global_step: int, steps_in_phase: int) -> Optional[EvalResult]:
         return self._evaluator.run(model, SupConLoss(temperature=self._temperature), include_projector=False)
 
+    def warmup_steps(self) -> int:
+        return CFG.training.phase_1.warmup_steps
+
+    def lr(self) -> float:
+        return CFG.training.phase_1.base_lr
+
+    def min_lr_ratio(self) -> float:
+        return CFG.training.phase_1.min_lr_ratio
 
 class Phase2SupCon:
     def __init__(self, train_loader: DataLoader[Sample],evaluator: Evaluator) -> None:
@@ -565,8 +559,8 @@ class Phase2SupCon:
         return build_warmup_cosine_scheduler(
             optimizer,
             total_steps=total_steps,
-            warmup_steps=int(CFG.training.phase_2.warmup_steps),
-            min_lr_ratio=float(CFG.training.min_lr_ratio),
+            warmup_steps=CFG.training.phase_2.warmup_steps,
+            min_lr_ratio=CFG.training.phase_2.min_lr_ratio,
         )
 
     def train_step(self, model: Embedder, batch: dict[str, Any]) -> StepResult:
@@ -575,9 +569,8 @@ class Phase2SupCon:
 
         mask = create_class_mask(batch["categories"]).to(DEVICE)
 
-        with autocast_ctx():
-            pe, se = model(photo, sketch)
-            loss = self._loss_fn(pairviews(torch.cat([pe, se], dim=0)), mask=mask)
+        pe, se = model(photo, sketch)
+        loss = self._loss_fn(pairviews(torch.cat([pe, se], dim=0)), mask=mask)
 
         return StepResult(loss=loss)
 
@@ -592,7 +585,15 @@ class Phase2SupCon:
         is_last = global_step == (self.epochs() * steps_in_phase - 1)
         include_projector = is_last
         return self._evaluator.run(model, self._loss_fn, include_projector=include_projector)
+        
+    def warmup_steps(self) -> int:
+        return CFG.training.phase_2.warmup_steps
 
+    def lr(self) -> float:
+        return CFG.training.phase_2.base_lr
+
+    def min_lr_ratio(self) -> float:
+        return CFG.training.phase_2.min_lr_ratio
 
 class Engine:
     def __init__(self, model: Embedder, callbacks: Iterable[Callback]) -> None:
@@ -612,7 +613,7 @@ class Engine:
             steps_in_epoch = len(loader)
             total_steps = epochs * steps_in_epoch
 
-            optimizer = make_optimizer(self.model)
+            optimizer = make_optimizer(self.model, lr=phase.lr())
             scheduler = phase.make_scheduler(optimizer, total_steps=total_steps)
             scaler = torch.amp.GradScaler("cuda", enabled=(DEVICE.type == "cuda"))
 
@@ -737,8 +738,6 @@ def build_phase2_loaders() -> tuple[DataLoader[Sample], DataLoader[Sample]]:
 
 
 def train() -> None:
-    configure_torch()
-
     run_name = time.strftime("%Y%m%d-%H%M%S")
     out_dir = Path(CFG.training.model_save_path) / run_name
     writer = SummaryWriter(log_dir=f"runs/{run_name}")

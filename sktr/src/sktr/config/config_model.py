@@ -9,12 +9,12 @@ class TrainingPhaseSettings(BaseModel):
     fraction_of_samples: float = Field(default=1.0, gt=0.0, le=1.0)
     epochs: int = Field(default=1, gt=0)
     warmup_steps: int = Field(default=0, ge=0)
+    base_lr: float = Field(default=1e-3, gt=0.0)
+    min_lr_ratio: float = Field(default=0.1, gt=0.0, le=1.0)
 
 class TrainingPhase2Settings(TrainingPhaseSettings):
     samples_per_class: int = Field(default=4, ge=1)
 class TrainingSettings(BaseModel):
-    base_lr: float = Field(default=1e-3, gt=0.0)
-    min_lr_ratio: float = Field(default=0.1, gt=0.0, le=1.0)
     batch_size: int = Field(default=32, ge=1)
     optimizer: Literal["adam", "adamw"] = "adam"
     # shall remove test fraction in the future.
