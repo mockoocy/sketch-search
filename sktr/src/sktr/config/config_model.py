@@ -14,6 +14,16 @@ class TrainingPhaseSettings(BaseModel):
 
 class TrainingPhase2Settings(TrainingPhaseSettings):
     samples_per_class: int = Field(default=4, ge=1)
+
+
+class EarlyStopConfig(BaseModel):
+    monitor: str = "mAP@10"
+    mode: str = "max"
+    patience: int = Field(default=5, ge=1)
+    min_delta: float = Field(default=0.0, ge=0.0)
+    warmup_evals: int = Field(default=1, ge=0)
+
+
 class TrainingSettings(BaseModel):
     batch_size: int = Field(default=32, ge=1)
     optimizer: Literal["adam", "adamw"] = "adam"
@@ -28,6 +38,7 @@ class TrainingSettings(BaseModel):
         fraction_of_samples=1.0,
     )
     num_workers: int = Field(default=6, ge=0)
+    early_stopping: EarlyStopConfig = EarlyStopConfig()
 
 
 class ValidationSettings(BaseModel):

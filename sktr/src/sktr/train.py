@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, Iterable, Optional, Protocol
 
 import numpy as np
+from sktr.config.config_model import EarlyStopConfig
 import torch
 from torch import nn
 from torch.utils.data import DataLoader
@@ -132,16 +133,6 @@ class CallbackList:
         for cb in self._callbacks:
             cb.on_run_end()
 
-
-
-
-@dataclass(frozen=True)
-class EarlyStopConfig:
-    monitor: str = "mAP@10"
-    mode: str = "max"
-    patience: int = 3
-    min_delta: float = 0.1
-    warmup_evals: int = 1
 
 
 class StopTraining(Exception):
@@ -746,7 +737,7 @@ def train() -> None:
         TensorBoardCallback(writer),
         ConsoleCallback(),
         CheckpointCallback(out_dir),
-        EarlyStopCallback(EarlyStopConfig())
+        EarlyStopCallback(CFG.training.early_stopping)
     ]
 
     model = build_model()
