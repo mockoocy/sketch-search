@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field
 
 
 class TrainingPhaseSettings(BaseModel):
+    enabled: bool = True
     sketches_path: str = Field(default="./data/unsupervised/sketches/")
     images_path: str = Field(default="./data/unsupervised/images/")
     temperature: float = Field(default=0.1, gt=0.0, le=1.0)

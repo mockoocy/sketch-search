@@ -836,17 +836,16 @@ def train() -> None:
 
     phases: list[Phase] = []
 
-    phase1_loader = build_phase1_loader()
     train_loader, val_loader = build_phase2_loaders()
     # evaluator will be used in both phases
     # but "phase 2" semantic makes sense, as it will
     # be used in a class-based manner
     evaluator = Evaluator(val_loader)
-
-    if phase1_loader is not None:
+    if CFG.training.phase_1.enabled:
+        phase1_loader = build_phase1_loader()
         phases.append(Phase1Dcl(phase1_loader, evaluator))
-
-    phases.append(Phase2SupCon(train_loader, evaluator))
+    if CFG.training.phase_2.enabled:
+        phases.append(Phase2SupCon(train_loader, evaluator))
 
     engine = Engine(model, callbacks)
     try:

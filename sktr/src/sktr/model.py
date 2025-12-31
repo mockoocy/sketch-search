@@ -1,11 +1,10 @@
-from typing import Literal, Protocol
+from typing import Literal, Protocol, Self, override
 
 import timm
 import torch
 import torch.nn.functional as F  # noqa: N812 - that's a convention - again :)
 import torchvision.transforms.v2 as T  # noqa: N812 - that's a convention
 from torch import nn
-from typing_extensions import Self
 
 from sktr.config.config import DEVICE
 from sktr.type_defs import (
@@ -402,7 +401,8 @@ class Embedder(nn.Module):
         sketch_features = self.backbone(sketch)
         return nn.functional.normalize(self.projection_head(sketch_features), dim=1)
 
-    def train(self, *, mode: bool = True) -> Self:
+    @override
+    def train(self, mode: bool = True) -> Self:
         super().train(mode)
         self.backbone.eval()
         return self
