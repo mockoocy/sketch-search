@@ -1,20 +1,15 @@
-from pathlib import Path
 import shutil
 from collections import defaultdict
+from pathlib import Path
 
 IMG_EXT = {".jpg", ".jpeg", ".png", ".webp"}
 
-from pathlib import Path
-import shutil
-from collections import defaultdict
-
-IMG_EXT = {".jpg", ".jpeg", ".png", ".webp"}
 
 def preprocess_sketchy(
     root: Path,
     out_images: Path,
     out_sketches: Path,
-):
+) -> None:
     out_images.mkdir(parents=True, exist_ok=True)
     out_sketches.mkdir(parents=True, exist_ok=True)
 

@@ -1,3 +1,5 @@
+from datetime import UTC, datetime
+
 from sqlmodel import Session, select
 
 from server.session.models import SessionToken
@@ -16,7 +18,12 @@ class SqlSessionRepository:
 
     def get_user_by_token_hash(self, token_hash: str) -> User | None:
         statement = (
-            select(User).join(SessionToken).where(SessionToken.token_hash == token_hash)
+            select(User)
+            .join(SessionToken)
+            .where(
+                (SessionToken.token_hash == token_hash)
+                & (SessionToken.expires_at > datetime.now(tz=UTC)),
+            )
         )
         return self.db_session.exec(statement).first()
 

@@ -2,7 +2,8 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
 
 from server.auth.otp.impl.default_service import DefaultOtpAuthService
 from server.auth.otp.impl.smtp_sender import SmtpOtpSender
@@ -112,5 +113,19 @@ def create_app() -> FastAPI:
         app.include_router(otp_router)
     app.include_router(images_router)
     app.include_router(observer_router)
+
+    # Mapping HTTPException to JSON responses
+    # to stay consistent with the "error" field.
+    @app.exception_handler(HTTPException)
+    async def http_exception_handler(
+        request: Request,  # noqa: ARG001
+        exc: HTTPException,
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={
+                "error": exc.detail,
+            },
+        )
 
     return app

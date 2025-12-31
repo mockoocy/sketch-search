@@ -1,8 +1,30 @@
 import { apiFetch } from "@/general/api";
 import type { StartOtpInput, VerifyOtpInput } from "./schema";
 
-export async function startOtp(input: StartOtpInput): Promise<void> {
-  return apiFetch<void>({
+type UserRole = "user" | "editor" | "admin";
+
+type AnonymousSession = {
+  state: "anonymous";
+};
+
+type ChallengeIssuesSession = {
+  state: "challenge_issued";
+};
+
+type AuthenticatedSession = {
+  state: "authenticated";
+  role: UserRole;
+};
+
+export type SessionInfo =
+  | AnonymousSession
+  | ChallengeIssuesSession
+  | AuthenticatedSession;
+
+export async function startOtp(
+  input: StartOtpInput,
+): Promise<ChallengeIssuesSession> {
+  return apiFetch<ChallengeIssuesSession>({
     url: "/api/auth/otp/start",
     context: "Start OTP",
     method: "POST",
@@ -14,8 +36,10 @@ export async function startOtp(input: StartOtpInput): Promise<void> {
   });
 }
 
-export async function verifyOtp(input: VerifyOtpInput): Promise<void> {
-  return apiFetch<void>({
+export async function verifyOtp(
+  input: VerifyOtpInput,
+): Promise<AuthenticatedSession> {
+  return apiFetch<AuthenticatedSession>({
     url: "/api/auth/otp/verify",
     context: "Verify OTP",
     method: "POST",
@@ -26,3 +50,17 @@ export async function verifyOtp(input: VerifyOtpInput): Promise<void> {
     credentials: "include",
   });
 }
+
+export async function getSessionInfo(): Promise<SessionInfo> {
+  return apiFetch<SessionInfo>({
+    url: "/api/auth/session",
+    context: "Get Session Info",
+    method: "GET",
+    credentials: "include",
+  });
+}
+
+export const sessionQuery = {
+  queryKey: ["session"] as const,
+  queryFn: getSessionInfo,
+};

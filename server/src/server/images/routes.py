@@ -6,10 +6,12 @@ from fastapi import APIRouter, Depends, Form, Response, UploadFile
 from PIL import Image
 from pydantic import BaseModel, TypeAdapter
 
+from server.auth.guard import auth_guard
 from server.dependencies import image_service, indexing_service, server_config
 from server.images.models import ImageSearchQuery
 from server.index.models import IndexedImage
 from server.logger import app_logger
+from server.user.models import UserRole
 
 
 class SimilaritySearchFormData(BaseModel):
@@ -34,7 +36,7 @@ images_router = APIRouter(
 )
 
 
-@images_router.get("/")
+@images_router.get("/", dependencies=[auth_guard(UserRole.USER)])
 async def list_images(
     image_service: image_service,
     indexing_service: indexing_service,
@@ -46,7 +48,7 @@ async def list_images(
     )
 
 
-@images_router.post("/similarity-search/")
+@images_router.post("/similarity-search/", dependencies=[auth_guard(UserRole.USER)])
 async def similarity_search(
     image_service: image_service,
     image: UploadFile,
@@ -63,7 +65,7 @@ async def similarity_search(
     )
 
 
-@images_router.post("/search-by-image/")
+@images_router.post("/search-by-image/", dependencies=[auth_guard(UserRole.USER)])
 async def search_by_image(
     body: SearchByImagePayload,
     image_service: image_service,
@@ -75,8 +77,8 @@ async def search_by_image(
     )
 
 
-@images_router.post("/")
-async def add_image(  # noqa: PLR0913
+@images_router.post("/", dependencies=[auth_guard(UserRole.EDITOR)])
+async def add_image(
     image: UploadFile,
     directory: Annotated[str, Form(...)],
     image_service: image_service,
@@ -98,7 +100,7 @@ async def add_image(  # noqa: PLR0913
     return {"status": "success"}
 
 
-@images_router.delete("/{image_id}/")
+@images_router.delete("/{image_id}/", dependencies=[auth_guard(UserRole.EDITOR)])
 async def delete_image(
     image_id: int,
     image_service: image_service,
@@ -107,7 +109,7 @@ async def delete_image(
     return {"status": "success"}
 
 
-@images_router.get("/{image_id}/thumbnail/")
+@images_router.get("/{image_id}/thumbnail/", dependencies=[auth_guard(UserRole.USER)])
 async def get_image_thumbnail(
     image_id: int,
     image_service: image_service,
@@ -123,7 +125,7 @@ async def get_image_thumbnail(
         )
 
 
-@images_router.get("/{image_id}/view/")
+@images_router.get("/{image_id}/view/", dependencies=[auth_guard(UserRole.USER)])
 async def view_image(
     image_id: int,
     image_service: image_service,

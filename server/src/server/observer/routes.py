@@ -8,6 +8,7 @@ from fastapi import APIRouter, Request, Response
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
+from server.auth.guard import auth_guard
 from server.dependencies import server_config
 from server.events.event_bus import EventBus
 from server.events.events import (
@@ -17,6 +18,7 @@ from server.events.events import (
     FileModifiedEvent,
     FileMovedEvent,
 )
+from server.user.models import UserRole
 
 observer_router = APIRouter(prefix="/api/fs", tags=["observer", "filesystem", "events"])
 
@@ -104,7 +106,7 @@ async def _event_generator(
             yield message
 
 
-@observer_router.get("/events/")
+@observer_router.get("/events/", dependencies=[auth_guard(UserRole.USER)])
 def fs_events(
     request: Request,
 ) -> StreamingResponse:
@@ -119,7 +121,7 @@ def fs_events(
     )
 
 
-@observer_router.get("/watched-directories/")
+@observer_router.get("/watched-directories/", dependencies=[auth_guard(UserRole.USER)])
 async def watched_directories(
     config: server_config,
 ) -> Response:

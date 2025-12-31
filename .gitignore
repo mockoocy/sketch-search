@@ -11,6 +11,7 @@ wheels/
 
 weights/
 pidinet/
+data/
 data/supervised/images/*
 data/supervised/sketches/*
 data/unsupervised/images/*

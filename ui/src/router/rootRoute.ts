@@ -5,8 +5,13 @@
 // it would create a circular dependency.
 
 import { SharedLayout } from "@/router/SharedLayout";
-import { createRootRoute } from "@tanstack/react-router";
+import type { QueryClient } from "@tanstack/react-query";
+import { createRootRouteWithContext } from "@tanstack/react-router";
 
-export const rootRoute = createRootRoute({
+interface RouterContext {
+  queryClient: QueryClient;
+}
+
+export const rootRoute = createRootRouteWithContext<RouterContext>()({
   component: SharedLayout,
 });

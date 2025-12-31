@@ -1,12 +1,12 @@
-import torch
 import pytest
+import torch
 
 from sktr.metrics import compute_map_at_k, compute_map_at_k_chunked
 
 
 @pytest.mark.parametrize("seed", [0, 1, 2])
 @pytest.mark.parametrize("ks", [(1,), (3,), (5,), (3, 5)])
-def test_chunked_and_unchunked_map_equivalence(seed, ks):
+def test_chunked_and_unchunked_map_equivalence(seed: int, ks: tuple[int, ...]) -> None:
     torch.manual_seed(seed)
 
     device = torch.device("cpu")

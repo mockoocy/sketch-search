@@ -1,12 +1,11 @@
 import gc
 import time
-from contextlib import nullcontext
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable, Optional, Protocol
+from typing import Any, Protocol
 
 import numpy as np
-from sktr.config.config_model import EarlyStopConfig
 import torch
 from torch import nn
 from torch.utils.data import DataLoader
@@ -14,6 +13,8 @@ from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
 from sktr.config.config import CFG, DEVICE
+from sktr.config.config_model import EarlyStopConfig
+from sktr.logger import train_logger
 from sktr.metrics import compute_map_at_k_chunked
 from sktr.model import (
     Embedder,
@@ -31,8 +32,6 @@ from sktr.photo_sketch_dataset import (
     get_samples_from_directories,
 )
 from sktr.type_defs import Sample
-
-
 
 
 def cuda_cleanup() -> None:
@@ -73,7 +72,7 @@ class ProjectorPayload:
 @dataclass(frozen=True)
 class EvalResult:
     metrics: EvaluationMetrics
-    projector: Optional[ProjectorPayload]
+    projector: ProjectorPayload | None
 
 
 @dataclass(frozen=True)
@@ -93,9 +92,20 @@ class StepState:
 
 class Callback(Protocol):
     def on_run_start(self, run_name: str) -> None: ...
-    def on_phase_start(self, phase_name: str, start_step: int, total_steps: int) -> None: ...
+    def on_phase_start(
+        self,
+        phase_name: str,
+        start_step: int,
+        total_steps: int,
+    ) -> None: ...
     def on_step_end(self, state: StepState) -> None: ...
-    def on_eval_end(self, phase_name: str, global_step: int, result: EvalResult, model: nn.Module) -> None: ...
+    def on_eval_end(
+        self,
+        phase_name: str,
+        global_step: int,
+        result: EvalResult,
+        model: nn.Module,
+    ) -> None: ...
     def on_epoch_end(self, phase_name: str, epoch: int, model: nn.Module) -> None: ...
     def on_phase_end(self, phase_name: str, end_step: int) -> None: ...
     def on_run_end(self) -> None: ...
@@ -109,7 +119,12 @@ class CallbackList:
         for cb in self._callbacks:
             cb.on_run_start(run_name)
 
-    def on_phase_start(self, phase_name: str, start_step: int, total_steps: int) -> None:
+    def on_phase_start(
+        self,
+        phase_name: str,
+        start_step: int,
+        total_steps: int,
+    ) -> None:
         for cb in self._callbacks:
             cb.on_phase_start(phase_name, start_step, total_steps)
 
@@ -117,7 +132,13 @@ class CallbackList:
         for cb in self._callbacks:
             cb.on_step_end(state)
 
-    def on_eval_end(self, phase_name: str, global_step: int, result: EvalResult, model: nn.Module) -> None:
+    def on_eval_end(
+        self,
+        phase_name: str,
+        global_step: int,
+        result: EvalResult,
+        model: nn.Module,
+    ) -> None:
         for cb in self._callbacks:
             cb.on_eval_end(phase_name, global_step, result, model)
 
@@ -134,27 +155,17 @@ class CallbackList:
             cb.on_run_end()
 
 
-
-class StopTraining(Exception):
+class StopTrainingError(Exception):
     pass
 
 
 class EarlyStopCallback(Callback):
     def __init__(self, cfg: EarlyStopConfig) -> None:
         self.cfg = cfg
-        self._best: Optional[float] = None
+        self._best: float | None = None
         self._bad_evals = 0
         self._evals_seen = 0
         self.should_stop = False
-
-    def on_run_start(self, run_name: str) -> None:
-        return
-
-    def on_phase_start(self, phase_name: str, start_step: int, total_steps: int) -> None:
-        return
-
-    def on_step_end(self, state) -> None:
-        return
 
     def _read_metric(self, result: EvalResult) -> float:
         m = result.metrics
@@ -168,7 +179,8 @@ class EarlyStopCallback(Callback):
             return float(m.precision_at_10)
         if self.cfg.monitor == "P@30":
             return float(m.precision_at_30)
-        raise ValueError(f"Unknown monitor metric: {self.cfg.monitor}")
+        err_msg = f"Unknown monitor metric: {self.cfg.monitor}"
+        raise ValueError(err_msg)
 
     def _is_improvement(self, value: float) -> bool:
         if self._best is None:
@@ -177,10 +189,16 @@ class EarlyStopCallback(Callback):
             return value > (self._best + self.cfg.min_delta)
         if self.cfg.mode == "min":
             return value < (self._best - self.cfg.min_delta)
-        raise ValueError(f"Unknown mode: {self.cfg.mode}")
+        err_msg = f"Unknown mode: {self.cfg.mode}"
+        raise ValueError(err_msg)
 
-    def on_eval_end(self, phase_name: str, global_step: int, result: EvalResult, model: nn.Module) -> None:
-
+    def on_eval_end(
+        self,
+        phase_name: str,
+        global_step: int,
+        result: EvalResult,
+        model: nn.Module,  # noqa: ARG002
+    ) -> None:
         self._evals_seen += 1
         if self._evals_seen <= self.cfg.warmup_evals:
             return
@@ -195,20 +213,13 @@ class EarlyStopCallback(Callback):
         self._bad_evals += 1
         if self._bad_evals >= self.cfg.patience:
             self.should_stop = True
-            raise StopTraining(
+            exception_messsage = (
                 f"Early stopping on {phase_name} at step={global_step + 1}: "
                 f"{self.cfg.monitor} did not improve for {self.cfg.patience} evals "
                 f"(best={self._best}, last={value})."
             )
+            raise StopTrainingError(exception_messsage)
 
-    def on_epoch_end(self, phase_name: str, epoch: int, model: nn.Module) -> None:
-        return
-
-    def on_phase_end(self, phase_name: str, end_step: int) -> None:
-        return
-
-    def on_run_end(self) -> None:
-        return
 
 def log_projector_embeddings(
     writer: SummaryWriter,
@@ -256,54 +267,71 @@ def log_projector_embeddings(
     )
 
 
-class TensorBoardCallback:
+class TensorBoardCallback(Callback):
     def __init__(self, writer: SummaryWriter) -> None:
         self.writer = writer
-
-    def on_run_start(self, run_name: str) -> None:
-        return
-
-    def on_phase_start(self, phase_name: str, start_step: int, total_steps: int) -> None:
-        return
 
     def on_step_end(self, state: StepState) -> None:
         if (state.global_step + 1) % 50 != 0:
             return
-        self.writer.add_scalar(f"{state.phase_name}/train_loss", state.loss, state.global_step)
+        self.writer.add_scalar(
+            f"{state.phase_name}/train_loss",
+            state.loss,
+            state.global_step,
+        )
         self.writer.add_scalar(f"{state.phase_name}/lr", state.lr, state.global_step)
 
-    def on_eval_end(self, phase_name: str, global_step: int, result: EvalResult, model: nn.Module) -> None:
+    def on_eval_end(
+        self,
+        phase_name: str,  # noqa: ARG002
+        global_step: int,
+        result: EvalResult,
+        model: nn.Module,  # noqa: ARG002
+    ) -> None:
         m = result.metrics
         self.writer.add_scalar("eval/loss", m.loss, global_step)
-        self.writer.add_scalar("eval/mAP@10", m.mean_average_precision_at_10, global_step)
+        self.writer.add_scalar(
+            "eval/mAP@10",
+            m.mean_average_precision_at_10,
+            global_step,
+        )
         self.writer.add_scalar("eval/Precision@10", m.precision_at_10, global_step)
-        self.writer.add_scalar("eval/mAP@30", m.mean_average_precision_at_30, global_step)
+        self.writer.add_scalar(
+            "eval/mAP@30",
+            m.mean_average_precision_at_30,
+            global_step,
+        )
         self.writer.add_scalar("eval/Precision@30", m.precision_at_30, global_step)
         if result.projector is not None:
             tag = f"eval/projector_step_{global_step + 1}"
             log_projector_embeddings(self.writer, result.projector, tag=tag)
 
-    def on_epoch_end(self, phase_name: str, epoch: int, model: nn.Module) -> None:
+    def on_epoch_end(self, phase_name: str, epoch: int, model: nn.Module) -> None:  # noqa: ARG002
         return
 
-    def on_phase_end(self, phase_name: str, end_step: int) -> None:
+    def on_phase_end(self, phase_name: str, end_step: int) -> None:  # noqa: ARG002
         return
 
     def on_run_end(self) -> None:
         self.writer.close()
 
 
-class ConsoleCallback:
-    def on_run_start(self, run_name: str) -> None:
+class ConsoleCallback(Callback):
+    def on_phase_start(
+        self,
+        phase_name: str,  # noqa: ARG002
+        start_step: int,  # noqa: ARG002
+        total_steps: int,  # noqa: ARG002
+    ) -> None:
         return
 
-    def on_phase_start(self, phase_name: str, start_step: int, total_steps: int) -> None:
-        return
-
-    def on_step_end(self, state: StepState) -> None:
-        return
-
-    def on_eval_end(self, phase_name: str, global_step: int, result: EvalResult, model: nn.Module) -> None:
+    def on_eval_end(
+        self,
+        phase_name: str,  # noqa: ARG002
+        global_step: int,
+        result: EvalResult,
+        model: nn.Module,  # noqa: ARG002
+    ) -> None:
         m = result.metrics
         tqdm.write(
             f"[Eval step {global_step + 1}] "
@@ -311,34 +339,25 @@ class ConsoleCallback:
             f"mAP@10={m.mean_average_precision_at_10:.4f} "
             f"P@10={m.precision_at_10:.4f} "
             f"mAP@30={m.mean_average_precision_at_30:.4f} "
-            f"P@30={m.precision_at_30:.4f}"
+            f"P@30={m.precision_at_30:.4f}",
         )
 
-    def on_epoch_end(self, phase_name: str, epoch: int, model: nn.Module) -> None:
-        return
 
-    def on_phase_end(self, phase_name: str, end_step: int) -> None:
-        return
-
-    def on_run_end(self) -> None:
-        return
-
-
-class CheckpointCallback:
+class CheckpointCallback(Callback):
     def __init__(self, out_dir: Path) -> None:
         self.out_dir = out_dir
         self.best_map10 = float("-inf")
 
-    def on_run_start(self, run_name: str) -> None:
+    def on_run_start(self, run_name: str) -> None:  # noqa: ARG002
         self.out_dir.mkdir(parents=True, exist_ok=True)
 
-    def on_phase_start(self, phase_name: str, start_step: int, total_steps: int) -> None:
-        return
-
-    def on_step_end(self, state: StepState) -> None:
-        return
-
-    def on_eval_end(self, phase_name: str, global_step: int, result: EvalResult, model: nn.Module) -> None:
+    def on_eval_end(
+        self,
+        phase_name: str,
+        global_step: int,  # noqa: ARG002
+        result: EvalResult,
+        model: nn.Module,
+    ) -> None:
         if phase_name != "phase2":
             return
         score = result.metrics.mean_average_precision_at_10
@@ -347,13 +366,10 @@ class CheckpointCallback:
             torch.save(model.state_dict(), self.out_dir / "best_phase2_by_map10.pth")
 
     def on_epoch_end(self, phase_name: str, epoch: int, model: nn.Module) -> None:
-        torch.save(model.state_dict(), self.out_dir / f"{phase_name}_epoch_{epoch + 1}.pth")
-
-    def on_phase_end(self, phase_name: str, end_step: int) -> None:
-        return
-
-    def on_run_end(self) -> None:
-        return
+        torch.save(
+            model.state_dict(),
+            self.out_dir / f"{phase_name}_epoch_{epoch + 1}.pth",
+        )
 
 
 def make_optimizer(model: nn.Module, lr: float) -> torch.optim.Optimizer:
@@ -361,7 +377,6 @@ def make_optimizer(model: nn.Module, lr: float) -> torch.optim.Optimizer:
     if CFG.training.optimizer == "adamw":
         return torch.optim.AdamW(params, lr=lr, weight_decay=0.05, fused=True)
     return torch.optim.Adam(params, lr=lr)
-
 
 
 def build_warmup_cosine_scheduler(
@@ -387,15 +402,21 @@ class Evaluator:
         self.loader = loader
 
     @torch.no_grad()
-    def run(self, model: Embedder, loss_fn: SupConLoss, include_projector: bool) -> EvalResult:
+    def run(
+        self,
+        model: Embedder,
+        loss_fn: SupConLoss,
+        *,
+        include_projector: bool,
+    ) -> EvalResult:
         model.eval()
 
         total_loss = 0.0
         total_count = 0
 
         n = len(self.loader.dataset)
-        photo_embeddings: Optional[torch.Tensor] = None
-        sketch_embeddings: Optional[torch.Tensor] = None
+        photo_embeddings: torch.Tensor | None = None
+        sketch_embeddings: torch.Tensor | None = None
 
         photo_category_ids = torch.empty(n, dtype=torch.long, device=DEVICE)
         sketch_category_ids = torch.empty(n, dtype=torch.long, device=DEVICE)
@@ -437,8 +458,6 @@ class Evaluator:
 
         val_loss = total_loss / total_count if total_count > 0 else float("inf")
 
-        assert photo_embeddings is not None and sketch_embeddings is not None
-
         metrics_k = compute_map_at_k_chunked(
             query_emb=sketch_embeddings,
             query_labels=sketch_category_ids,
@@ -451,7 +470,7 @@ class Evaluator:
         map10, p10 = metrics_k[10]
         map30, p30 = metrics_k[30]
 
-        projector: Optional[ProjectorPayload] = None
+        projector: ProjectorPayload | None = None
         if include_projector:
             projector = ProjectorPayload(
                 photo_embeddings_cpu=photo_embeddings.detach().cpu(),
@@ -477,17 +496,33 @@ class Evaluator:
 
 class Phase(Protocol):
     name: str
+
     def epochs(self) -> int: ...
     def train_loader(self) -> DataLoader[Sample]: ...
     def warmup_steps(self) -> int: ...
     def lr(self) -> float: ...
+
     def min_lr_ratio(self) -> float: ...
+
     def train_step(self, model: Embedder, batch: dict[str, Any]) -> StepResult: ...
-    def should_eval(self, epoch: int, step_in_epoch: int, global_step: int, steps_in_phase: int) -> bool: ...
-    def eval_step(self, model: Embedder, global_step: int, steps_in_phase: int) -> Optional[EvalResult]: ...
+
+    def should_eval(
+        self,
+        epoch: int,
+        step_in_epoch: int,
+        global_step: int,
+        steps_in_phase: int,
+    ) -> bool: ...
+
+    def eval_step(
+        self,
+        model: Embedder,
+        global_step: int,
+        steps_in_phase: int,
+    ) -> EvalResult: ...
 
 
-class Phase1Dcl:
+class Phase1Dcl(Phase):
     def __init__(self, loader: DataLoader[Sample], evaluator: Evaluator) -> None:
         self.name = "phase1"
         self._loader = loader
@@ -500,7 +535,11 @@ class Phase1Dcl:
     def train_loader(self) -> DataLoader[Sample]:
         return self._loader
 
-    def make_scheduler(self, optimizer: torch.optim.Optimizer, total_steps: int) -> torch.optim.lr_scheduler.LambdaLR:
+    def make_scheduler(
+        self,
+        optimizer: torch.optim.Optimizer,
+        total_steps: int,
+    ) -> torch.optim.lr_scheduler.LambdaLR:
         return build_warmup_cosine_scheduler(
             optimizer,
             total_steps=total_steps,
@@ -517,11 +556,26 @@ class Phase1Dcl:
 
         return StepResult(loss=loss)
 
-    def should_eval(self, epoch: int, step_in_epoch: int, global_step: int, steps_in_phase: int) -> bool:
+    def should_eval(
+        self,
+        epoch: int,  # noqa: ARG002
+        step_in_epoch: int,
+        global_step: int,  # noqa: ARG002
+        steps_in_phase: int,
+    ) -> bool:
         return step_in_epoch == (steps_in_phase - 1)
 
-    def eval_step(self, model: Embedder, global_step: int, steps_in_phase: int) -> Optional[EvalResult]:
-        return self._evaluator.run(model, SupConLoss(temperature=self._temperature), include_projector=False)
+    def eval_step(
+        self,
+        model: Embedder,
+        global_step: int,  # noqa: ARG002
+        steps_in_phase: int,  # noqa: ARG002
+    ) -> EvalResult:
+        return self._evaluator.run(
+            model,
+            SupConLoss(temperature=self._temperature),
+            include_projector=False,
+        )
 
     def warmup_steps(self) -> int:
         return CFG.training.phase_1.warmup_steps
@@ -532,8 +586,9 @@ class Phase1Dcl:
     def min_lr_ratio(self) -> float:
         return CFG.training.phase_1.min_lr_ratio
 
-class Phase2SupCon:
-    def __init__(self, train_loader: DataLoader[Sample],evaluator: Evaluator) -> None:
+
+class Phase2SupCon(Phase):
+    def __init__(self, train_loader: DataLoader[Sample], evaluator: Evaluator) -> None:
         self.name = "phase2"
         self._train_loader = train_loader
         self._loss_fn = SupConLoss(temperature=float(CFG.training.phase_2.temperature))
@@ -546,7 +601,11 @@ class Phase2SupCon:
     def train_loader(self) -> DataLoader[Sample]:
         return self._train_loader
 
-    def make_scheduler(self, optimizer: torch.optim.Optimizer, total_steps: int) -> torch.optim.lr_scheduler.LambdaLR:
+    def make_scheduler(
+        self,
+        optimizer: torch.optim.Optimizer,
+        total_steps: int,
+    ) -> torch.optim.lr_scheduler.LambdaLR:
         return build_warmup_cosine_scheduler(
             optimizer,
             total_steps=total_steps,
@@ -565,18 +624,33 @@ class Phase2SupCon:
 
         return StepResult(loss=loss)
 
-    def should_eval(self, epoch: int, step_in_epoch: int, global_step: int, steps_in_phase: int) -> bool:
+    def should_eval(
+        self,
+        epoch: int,  # noqa: ARG002
+        step_in_epoch: int,
+        global_step: int,
+        steps_in_phase: int,
+    ) -> bool:
         is_first = global_step == 0
         is_eval_every = (global_step + 1) % self._eval_every == 0
         is_epoch_end = step_in_epoch == (steps_in_phase - 1)
         is_last = global_step == (self.epochs() * steps_in_phase - 1)
         return is_first or is_eval_every or is_epoch_end or is_last
 
-    def eval_step(self, model: Embedder, global_step: int, steps_in_phase: int) -> Optional[EvalResult]:
+    def eval_step(
+        self,
+        model: Embedder,
+        global_step: int,
+        steps_in_phase: int,
+    ) -> EvalResult:
         is_last = global_step == (self.epochs() * steps_in_phase - 1)
         include_projector = is_last
-        return self._evaluator.run(model, self._loss_fn, include_projector=include_projector)
-        
+        return self._evaluator.run(
+            model,
+            self._loss_fn,
+            include_projector=include_projector,
+        )
+
     def warmup_steps(self) -> int:
         return CFG.training.phase_2.warmup_steps
 
@@ -585,6 +659,7 @@ class Phase2SupCon:
 
     def min_lr_ratio(self) -> float:
         return CFG.training.phase_2.min_lr_ratio
+
 
 class Engine:
     def __init__(self, model: Embedder, callbacks: Iterable[Callback]) -> None:
@@ -612,7 +687,11 @@ class Engine:
             self.cbs.on_phase_start(phase.name, global_step, total_steps)
 
             for epoch in range(epochs):
-                pbar = tqdm(loader, desc=f"[{phase.name}] Epoch {epoch + 1}/{epochs}", miniters=50)
+                pbar = tqdm(
+                    loader,
+                    desc=f"[{phase.name}] Epoch {epoch + 1}/{epochs}",
+                    miniters=50,
+                )
                 for step_in_epoch, batch in enumerate(pbar):
                     optimizer.zero_grad(set_to_none=True)
 
@@ -638,10 +717,24 @@ class Engine:
                     if (global_step + 1) % 50 == 0:
                         pbar.set_postfix({"loss": loss_val})
 
-                    if phase.should_eval(epoch, step_in_epoch, global_step, steps_in_epoch):
-                        result = phase.eval_step(self.model, global_step, steps_in_epoch)
+                    if phase.should_eval(
+                        epoch,
+                        step_in_epoch,
+                        global_step,
+                        steps_in_epoch,
+                    ):
+                        result = phase.eval_step(
+                            self.model,
+                            global_step,
+                            steps_in_epoch,
+                        )
                         if result is not None:
-                            self.cbs.on_eval_end(phase.name, global_step, result, self.model)
+                            self.cbs.on_eval_end(
+                                phase.name,
+                                global_step,
+                                result,
+                                self.model,
+                            )
                         self.model.train()
 
                     global_step += 1
@@ -667,11 +760,10 @@ def build_model() -> Embedder:
         embedding_size=CFG.skitter.embedding_size,
     ).to(DEVICE)
 
-    model = torch.compile(model, mode="reduce-overhead")
-    return model
+    return torch.compile(model, mode="reduce-overhead")
 
 
-def build_phase1_loader() -> Optional[DataLoader[Sample]]:
+def build_phase1_loader() -> DataLoader[Sample] | None:
     epochs = int(CFG.training.phase_1.epochs)
     if epochs <= 0:
         return None
@@ -737,7 +829,7 @@ def train() -> None:
         TensorBoardCallback(writer),
         ConsoleCallback(),
         CheckpointCallback(out_dir),
-        EarlyStopCallback(CFG.training.early_stopping)
+        EarlyStopCallback(CFG.training.early_stopping),
     ]
 
     model = build_model()
@@ -759,5 +851,5 @@ def train() -> None:
     engine = Engine(model, callbacks)
     try:
         engine.run(run_name, phases, start_step=0)
-    except StopTraining as e:
-        print(str(e))
+    except StopTrainingError as e:
+        train_logger.info("Training stopped: %s", e)

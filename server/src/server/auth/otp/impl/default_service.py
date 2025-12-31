@@ -123,3 +123,12 @@ class DefaultOtpAuthService:
             raise UserNotFoundError(err_msg)
 
         return user
+
+    def validate_challenge_token(self, challenge_token: str) -> bool:
+        challenge_token_hash = _hash_challenge_token(challenge_token)
+        otp_code = self._otp_repository.find_otp_by_challenge_hash(challenge_token_hash)
+        if not otp_code:
+            return False
+        if otp_code.consumed:
+            return False
+        return otp_code.expires_at.replace(tzinfo=UTC) > datetime.now(UTC)

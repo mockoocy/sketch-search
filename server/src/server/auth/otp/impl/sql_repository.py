@@ -9,7 +9,7 @@ class SqlOtpRepository:
 
     def find_otp_by_challenge_hash(self, challenge_token: str) -> OtpCode | None:
         statement = select(OtpCode).where(
-            OtpCode.challenge_token_hash == challenge_token,
+            (OtpCode.challenge_token_hash == challenge_token) & (~OtpCode.consumed),
         )
         results = self.db_session.exec(statement)
         return results.first()

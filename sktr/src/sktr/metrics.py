@@ -10,7 +10,7 @@ def compute_map_at_k_chunked(
     *,
     ks: tuple[int, ...] = (10, 30),
     chunk_size: int = 256,
-):
+) -> dict[int, tuple[float, float]]:
     gallery_emb = gallery_emb.t()  # [D, G]
 
     stats = {k: {"ap": 0.0, "p": 0.0} for k in ks}

@@ -2,6 +2,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+
 class TrainingPhaseSettings(BaseModel):
     sketches_path: str = Field(default="./data/unsupervised/sketches/")
     images_path: str = Field(default="./data/unsupervised/images/")
@@ -11,6 +12,7 @@ class TrainingPhaseSettings(BaseModel):
     warmup_steps: int = Field(default=0, ge=0)
     base_lr: float = Field(default=1e-3, gt=0.0)
     min_lr_ratio: float = Field(default=0.1, gt=0.0, le=1.0)
+
 
 class TrainingPhase2Settings(TrainingPhaseSettings):
     samples_per_class: int = Field(default=4, ge=1)

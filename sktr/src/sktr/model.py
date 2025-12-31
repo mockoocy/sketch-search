@@ -296,7 +296,8 @@ class RandomMorphology(nn.Module):
     def __init__(self, p: float = 0.35, kernel_size: int = 3) -> None:
         super().__init__()
         if kernel_size % 2 == 0:
-            raise ValueError("kernel_size must be odd")
+            err_msg = "kernel_size must be odd"
+            raise ValueError(err_msg)
         self.p = p
         self.kernel_size = kernel_size
 
@@ -401,7 +402,7 @@ class Embedder(nn.Module):
         sketch_features = self.backbone(sketch)
         return nn.functional.normalize(self.projection_head(sketch_features), dim=1)
 
-    def train(self, mode: bool = True) -> Self:
+    def train(self, *, mode: bool = True) -> Self:
         super().train(mode)
         self.backbone.eval()
         return self

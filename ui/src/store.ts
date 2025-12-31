@@ -65,6 +65,7 @@ export const useGalleryStore = create<GalleryStore>((set) => ({
     items_per_page: PAGE_SIZES[0],
     order_by: "user_visible_name",
     direction: "ascending",
+    directory: ".",
   },
   setPage: (page) => set((state) => ({ query: { ...state.query, page } })),
   setSorting: (order_by, direction) =>

@@ -1,6 +1,6 @@
 import random
 from collections import defaultdict
-from collections.abc import Generator
+from collections.abc import Iterator
 from pathlib import Path
 
 import numpy as np
@@ -8,6 +8,7 @@ import torch
 from torch.utils.data import DataLoader, Dataset, Sampler
 from torchvision import io
 
+from sktr.logger import dataset_logger
 from sktr.type_defs import (
     Batch,
     GrayTorch,
@@ -106,7 +107,7 @@ class ClassBalancedBatchSampler(Sampler[list[int]]):
         self.classes_per_batch = classes_per_batch
         self.samples_per_class = samples_per_class
         self.drop_last = drop_last
-        self.rng = random.Random(seed)
+        self.rng = random.Random(seed)  # noqa: S311
 
         self.by_class: dict[str, list[int]] = defaultdict(list)
         for i, s in enumerate(samples):
@@ -118,14 +119,14 @@ class ClassBalancedBatchSampler(Sampler[list[int]]):
         self.batch_size = self.classes_per_batch * self.samples_per_class
 
         total = len(samples)
-        self.num_batches = total // self.batch_size if drop_last else np.ceil(
-            total / self.batch_size
+        self.num_batches = (
+            total // self.batch_size if drop_last else np.ceil(total / self.batch_size)
         )
 
     def __len__(self) -> int:
         return self.num_batches
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[list[int]]:
         for _ in range(self.num_batches):
             chosen_classes = self.rng.sample(self.classes, self.classes_per_batch)
 
@@ -145,8 +146,7 @@ class ClassBalancedBatchSampler(Sampler[list[int]]):
             yield batch
 
 
-
-def build_loader(  # noqa: PLR0913
+def build_loader(
     samples: list[SamplePath],
     *,
     use_class_balanced_sampler: bool = True,
@@ -193,7 +193,7 @@ def build_loader(  # noqa: PLR0913
     )
 
 
-def get_samples_from_directories(  # noqa: PLR0913
+def get_samples_from_directories(
     images_root: Path,
     sketches_root: Path,
     per_category_fraction: float = 1.0,
@@ -225,15 +225,15 @@ def get_samples_from_directories(  # noqa: PLR0913
         A tuple of three lists of (image, sketch) path pairs:
         (train_samples, val_samples)
     """
-    rng = random.Random(seed)
+    rng = random.Random(seed)  # noqa: S311
 
     categories = sorted(
-        dir.name
-        for dir in images_root.iterdir()
-        if dir.is_dir() and (sketches_root / dir.name).is_dir()
+        directory.name
+        for directory in images_root.iterdir()
+        if directory.is_dir() and (sketches_root / directory.name).is_dir()
     )
     rng.shuffle(categories)
-    n_val = int(round(len(categories) * val_fraction))
+    n_val = round(len(categories) * val_fraction)
     val_cats = set(categories[:n_val])
 
     train_samples = list[SamplePath]()
@@ -243,11 +243,13 @@ def get_samples_from_directories(  # noqa: PLR0913
         sk_dir = sketches_root / cat
 
         image_files = sorted(
-            path for path in img_dir.iterdir()
+            path
+            for path in img_dir.iterdir()
             if path.is_file() and path.suffix[1:].lower() in IMG_EXTENSIONS
         )
         sketch_files = sorted(
-            path for path in sk_dir.iterdir()
+            path
+            for path in sk_dir.iterdir()
             if path.is_file() and path.suffix[1:].lower() in IMG_EXTENSIONS
         )
 
@@ -276,10 +278,17 @@ def get_samples_from_directories(  # noqa: PLR0913
             val_samples.extend(pairs)
         else:
             train_samples.extend(pairs)
-    print(f"Got {len(train_samples)} train samples split into {len(categories) - n_val} categories")
-    print(f"Got {len(val_samples)} val samples split into {n_val} categories")
+    dataset_logger.info(
+        "Got %d train samples split into %d categories",
+        len(train_samples),
+        len(categories) - n_val,
+    )
+    dataset_logger.info(
+        "Got %d val samples split into %d categories",
+        len(val_samples),
+        n_val,
+    )
     return train_samples, val_samples
-
 
 
 def get_paired_samples(
@@ -300,16 +309,16 @@ def get_paired_samples(
     `preprocess_sketchy.py`.
     """
     photos = {
-        p.stem: p
-        for p in images_root.iterdir()
-        if p.suffix[1:].lower() in IMG_EXTENSIONS
+        path.stem: path
+        for path in images_root.iterdir()
+        if path.suffix[1:].lower() in IMG_EXTENSIONS
     }
 
     paired = list[SamplePath]()
 
     for sk in sketches_root.iterdir():
-        format = sk.suffix[1:].lower()
-        if format not in IMG_EXTENSIONS:
+        extension = sk.suffix[1:].lower()
+        if extension not in IMG_EXTENSIONS:
             continue
 
         stem = sk.stem
@@ -326,11 +335,11 @@ def get_paired_samples(
                 photo=photo,
                 sketch=sk,
                 category=instance_id,  # instance-level label
-            )
+            ),
         )
-    rng = random.Random(seed)
+    rng = random.Random(seed)  # noqa: S311
     rng.shuffle(paired)
     target = int(len(paired) * fraction)
     paired = paired[:target]
-    print(f"Got {len(paired)} instance-level pairs")
+    dataset_logger.info("Found %d paired samples.", len(paired))
     return paired
