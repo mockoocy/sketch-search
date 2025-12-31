@@ -1,4 +1,3 @@
-import { PAGE_SIZES } from "@/gallery/Gallery/ImagesTablePagination";
 import type { ImageSearchQuery } from "@/gallery/schema";
 import { create } from "zustand";
 
@@ -62,7 +61,7 @@ export const useGalleryStore = create<GalleryStore>((set) => ({
     })),
   query: {
     page: 1,
-    items_per_page: PAGE_SIZES[0],
+    items_per_page: 12,
     order_by: "user_visible_name",
     direction: "ascending",
     directory: ".",

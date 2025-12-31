@@ -14,13 +14,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/general/components/select";
-import { useGalleryStore } from "@/store";
 
-export type PaginationProps = {
+export type TablePaginationProps = {
   itemsCount: number;
+  page: number;
+  itemsPerPage: number;
+  onPageChange: (page: number) => void;
+  onItemsPerPageChange: (itemsPerPage: number) => void;
+  pageSizes?: readonly number[];
 };
-
-export const PAGE_SIZES = [12, 24, 48, 96] as const;
 
 function buildPageItems(page: number, totalPages: number) {
   if (totalPages <= 7)
@@ -41,16 +43,16 @@ function buildPageItems(page: number, totalPages: number) {
   return items;
 }
 
-export function ImagesTablePagination({ itemsCount }: PaginationProps) {
-  const page = useGalleryStore((state) => state.query.page);
-  const itemsPerPage = useGalleryStore((state) => state.query.items_per_page);
-  const onPageChange = useGalleryStore((state) => state.setPage);
-  const onItemsPerPageChange = useGalleryStore(
-    (state) => state.setItemsPerPage,
-  );
-
+export function TablePagination({
+  itemsCount,
+  page,
+  itemsPerPage,
+  onPageChange,
+  onItemsPerPageChange,
+  pageSizes = [12, 24, 48, 96] as const,
+}: TablePaginationProps) {
+  const totalPages = Math.max(1, Math.ceil(itemsCount / itemsPerPage));
   const canPrev = page > 1;
-  const totalPages = Math.ceil(itemsCount / itemsPerPage);
   const canNext = page < totalPages;
   const pageItems = buildPageItems(page, totalPages);
 
@@ -69,22 +71,22 @@ export function ImagesTablePagination({ itemsCount }: PaginationProps) {
             />
           </PaginationItem>
 
-          {pageItems.map((page, pageIdx) =>
-            page === null ? (
-              <PaginationItem key={`e-${pageIdx}`}>
+          {pageItems.map((p, idx) =>
+            p === null ? (
+              <PaginationItem key={`e-${idx}`}>
                 <PaginationEllipsis />
               </PaginationItem>
             ) : (
-              <PaginationItem key={page}>
+              <PaginationItem key={p}>
                 <PaginationLink
                   href="#"
-                  isActive={page === page}
+                  isActive={p === page}
                   onClick={(event) => {
                     event.preventDefault();
-                    onPageChange(page);
+                    onPageChange(p);
                   }}
                 >
-                  {page}
+                  {p}
                 </PaginationLink>
               </PaginationItem>
             ),
@@ -102,14 +104,16 @@ export function ImagesTablePagination({ itemsCount }: PaginationProps) {
           </PaginationItem>
         </PaginationContent>
       </Pagination>
+
       <Select
+        value={String(itemsPerPage)}
         onValueChange={(value) => onItemsPerPageChange(Number.parseInt(value))}
       >
         <SelectTrigger>
           <SelectValue placeholder={`Items per page: ${itemsPerPage}`} />
         </SelectTrigger>
         <SelectContent>
-          {PAGE_SIZES.map((size) => (
+          {pageSizes.map((size) => (
             <SelectItem key={size} value={String(size)}>
               {`Items per page: ${size}`}
             </SelectItem>

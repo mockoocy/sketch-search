@@ -25,7 +25,7 @@ class LoginAttempt(SQLModel, table=True):
 
 class OtpCode(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
-    user_id: int = Field(foreign_key="user.id")
+    user_id: int = Field(foreign_key="user.id", ondelete="CASCADE")
     code_hash: str
     challenge_token_hash: str
     expires_at: datetime

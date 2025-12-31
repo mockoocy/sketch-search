@@ -12,6 +12,7 @@ from server.events.event_bus import EventBus
 from server.images.service import ImageService
 from server.index.service import IndexingService
 from server.session.service import SessionService
+from server.user.service import UserService
 
 
 def _get_otp_auth_service(request: Request) -> OtpAuthService:
@@ -54,3 +55,10 @@ def _get_event_bus(request: Request) -> EventBus:
 
 
 event_bus = Annotated[EventBus, Depends(_get_event_bus)]
+
+
+def _get_user_service(request: Request) -> UserService:
+    return cast("UserService", request.app.state.user_service)
+
+
+user_service = Annotated[UserService, Depends(_get_user_service)]

@@ -1,7 +1,6 @@
+import type { UserRole } from "@/admin/schema";
 import { apiFetch } from "@/general/api";
 import type { StartOtpInput, VerifyOtpInput } from "./schema";
-
-type UserRole = "user" | "editor" | "admin";
 
 type AnonymousSession = {
   state: "anonymous";

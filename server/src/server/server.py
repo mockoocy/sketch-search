@@ -25,7 +25,9 @@ from server.observer.path_resolver import PathResolver
 from server.observer.routes import observer_router
 from server.session.impl.default_service import DefaultSessionService
 from server.session.impl.sql_repository import SqlSessionRepository
+from server.user.impl.default_service import DefaultUserService
 from server.user.impl.sql_repository import SqlUserRepository
+from server.user.routes import user_router
 
 
 async def bootstrap_index(
@@ -52,6 +54,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     app.state.db_session = get_db_session(app.state.config.database)
     app_logger.setLevel(app.state.config.log_level)
     app.state.user_repository = SqlUserRepository(app.state.db_session)
+    app.state.user_service = DefaultUserService(app.state.user_repository)
     app.state.session_repository = SqlSessionRepository(app.state.db_session)
     app.state.session_service = DefaultSessionService(app.state.session_repository)
     app.state.indexed_image_repository = PgVectorIndexedImageRepository(
@@ -111,6 +114,7 @@ def create_app() -> FastAPI:
 
     if app.state.config.auth.kind == "otp":
         app.include_router(otp_router)
+        app.include_router(user_router)
     app.include_router(images_router)
     app.include_router(observer_router)
 

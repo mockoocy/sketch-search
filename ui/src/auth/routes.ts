@@ -1,11 +1,11 @@
 import { sessionQuery } from "@/auth/api";
 import { LoginStart } from "@/auth/LoginStart";
 import { LoginVerify } from "@/auth/LoginVerify";
-import { rootRoute } from "@/router/rootRoute";
+import { publicRoute } from "@/router/public-route";
 import { createRoute, redirect } from "@tanstack/react-router";
 
 export const loginRootRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => publicRoute,
   path: "/login",
 });
 

@@ -21,3 +21,10 @@ class User(SQLModel, table=True):
     id: int = Field(default=None, primary_key=True)
     email: str
     role: UserRole = Field(default=UserRole.USER)
+
+
+class UserSearchQuery(SQLModel):
+    page: int | None = 1
+    page_size: int | None = 10
+    email: str | None = None
+    role: UserRole | None = None

@@ -1,7 +1,7 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
-import { startOtp, verifyOtp } from "./api";
+import { sessionQuery, startOtp, verifyOtp } from "./api";
 import type { StartOtpInput, VerifyOtpInput } from "./schema";
 
 export function useStartOtp() {
@@ -28,4 +28,8 @@ export function useVerifyOtp() {
       navigate({ to: "/" });
     },
   });
+}
+
+export function useCurrentSession() {
+  return useQuery(sessionQuery);
 }

@@ -1,3 +1,4 @@
+import { RequireRole } from "@/auth/RequireRole";
 import { useDeleteImage } from "@/gallery/hooks";
 import type { IndexedImage } from "@/gallery/schema";
 import { Button } from "@/general/components/button";
@@ -79,18 +80,19 @@ export function ImagePreviewDialog({
               <Download />
               Download
             </Button>
-
-            <Button
-              variant="destructive"
-              disabled={isPending}
-              onClick={() => {
-                removeImage(image.id);
-                setOpen(false);
-              }}
-            >
-              <Trash />
-              Delete
-            </Button>
+            <RequireRole role="editor">
+              <Button
+                variant="destructive"
+                disabled={isPending}
+                onClick={() => {
+                  removeImage(image.id);
+                  setOpen(false);
+                }}
+              >
+                <Trash />
+                Delete
+              </Button>
+            </RequireRole>
           </div>
         </div>
       </DialogContent>

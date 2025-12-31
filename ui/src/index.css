@@ -108,6 +108,7 @@ html {
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
   --font-sans: "Raleway", sans-serif;
+  --font-sketch: "Cabin Sketch", cursive;
 }
 
 .dark {
@@ -155,5 +156,11 @@ html {
   }
   html {
     @apply font-sans;
+  }
+}
+
+@layer utilities {
+  .font-sketch {
+    font-family: var(--font-sketch);
   }
 }

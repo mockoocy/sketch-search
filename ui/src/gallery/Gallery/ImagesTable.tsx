@@ -1,6 +1,5 @@
 import { DirectoryCell } from "@/gallery/Gallery/DirectoryCell";
 import { GoBackCell } from "@/gallery/Gallery/GoBackCell";
-import { ImagesTablePagination } from "@/gallery/Gallery/ImagesTablePagination";
 import { ThumbnailCell } from "@/gallery/Gallery/ThumbnailCell";
 import type { GalleryRow } from "@/gallery/hooks";
 import {
@@ -11,6 +10,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/general/components/table";
+import { TablePagination } from "@/general/components/table-pagination";
+import { useGalleryStore } from "@/store";
 import {
   flexRender,
   getCoreRowModel,
@@ -91,6 +92,19 @@ export function ImagesTable({
   onSortingChange,
   sorting,
 }: ImagesTableProps) {
+  const pageSizes = [12, 24, 48, 96] as const;
+  const page = useGalleryStore((state) => state.query.page);
+  const itemsPerPage = useGalleryStore((state) => state.query.items_per_page);
+  const setPage = useGalleryStore((state) => state.setPage);
+  const setItemsPerPage = useGalleryStore((state) => state.setItemsPerPage);
+
+  const onPageChange = (newPage: number) => {
+    setPage(newPage);
+  };
+  const onItemsPerPageChange = (newItemsPerPage: number) => {
+    setItemsPerPage(newItemsPerPage);
+  };
+
   // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
     data: rows,
@@ -150,7 +164,14 @@ export function ImagesTable({
           )}
         </TableBody>
       </Table>
-      <ImagesTablePagination itemsCount={gallerySize} />
+      <TablePagination
+        itemsCount={gallerySize}
+        page={page}
+        itemsPerPage={itemsPerPage}
+        onPageChange={onPageChange}
+        onItemsPerPageChange={onItemsPerPageChange}
+        pageSizes={pageSizes}
+      />
     </div>
   );
 }

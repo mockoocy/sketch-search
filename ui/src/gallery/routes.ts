@@ -1,10 +1,10 @@
 import { sessionQuery } from "@/auth/api";
 import { Gallery } from "@/gallery/Gallery";
-import { rootRoute } from "@/router/rootRoute";
+import { protectedRoute } from "@/router/protected-route";
 import { createRoute, redirect } from "@tanstack/react-router";
 
 export const galleryRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => protectedRoute,
   path: "/",
   component: Gallery,
   beforeLoad: async ({ context }) => {

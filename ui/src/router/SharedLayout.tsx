@@ -3,7 +3,7 @@ import { Outlet } from "@tanstack/react-router";
 
 export function SharedLayout() {
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
+    <div className="w-vw h-vh bg-gray-50 dark:bg-gray-900">
       <Outlet />
       <Toaster />
     </div>

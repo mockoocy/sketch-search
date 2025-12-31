@@ -1,7 +1,7 @@
 from pydantic import EmailStr
-from sqlmodel import Session, select
+from sqlmodel import Session, col, func, select
 
-from server.user.models import User
+from server.user.models import User, UserSearchQuery
 
 
 class SqlUserRepository:
@@ -23,11 +23,35 @@ class SqlUserRepository:
         return user
 
     def edit_user(self, user: User) -> User:
-        self.db_session.add(user)
+        select_statement = select(User).where(User.id == user.id)
+        existing_user = self.db_session.exec(select_statement).first()
+        if not existing_user:
+            err_msg = f"User with id {user.id} not found"
+            raise ValueError(err_msg)
+        for key, value in user.dict(exclude_unset=True).items():
+            setattr(existing_user, key, value)
         self.db_session.commit()
-        self.db_session.refresh(user)
-        return user
+        self.db_session.refresh(existing_user)
+        return existing_user
 
     def delete_user(self, user: User) -> None:
         self.db_session.delete(user)
         self.db_session.commit()
+
+    def list_users(self, query: UserSearchQuery) -> list[User]:
+        conditions = []
+        if query.email:
+            conditions.append(User.email.ilike(f"%{query.email}%"))
+        if query.role:
+            conditions.append(User.role == query.role)
+        statement = (
+            select(User)
+            .where(*conditions)
+            .offset((query.page - 1) * query.page_size)
+            .limit(query.page_size)
+        )
+        return self.db_session.exec(statement).all()
+
+    def get_user_count(self) -> int:
+        statement = select(func.count(col(User.id)))
+        return self.db_session.exec(statement).one()
