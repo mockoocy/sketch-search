@@ -6,12 +6,15 @@ import {
   DialogTrigger,
 } from "@/general/components/dialog";
 import { Input } from "@/general/components/input";
+import { useGalleryStore } from "@/store";
 import { useState } from "react";
 
 export function AddImageDialog() {
   const { mutate: add, isPending } = useAddImage();
   const [file, setFile] = useState<File | null>(null);
   const [isOpen, setIsOpen] = useState(false);
+
+  const directory = useGalleryStore((state) => state.query.directory) || ".";
 
   if (isPending) {
     return <Button disabled>Uploading...</Button>;
@@ -51,7 +54,7 @@ export function AddImageDialog() {
             file &&
             add({
               file,
-              directory: "",
+              directory,
             })
           }
         >
