@@ -1,6 +1,6 @@
 import asyncio
-from collections.abc import AsyncGenerator, Generator
-from contextlib import contextmanager
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -31,11 +31,11 @@ class DirectoryNode(BaseModel):
     children: list["DirectoryNode"] = []
 
 
-@contextmanager
-def server_fs_events(
+@asynccontextmanager
+async def server_fs_events(
     event_bus: EventBus,
     queue: asyncio.Queue[Event],
-) -> Generator[None, None, None]:
+) -> AsyncGenerator[None, None]:
     """
     Context manager to handle subscription and unsubscription
     of events related to file system changes.
@@ -99,11 +99,21 @@ async def _event_generator(
     request: Request,
     queue: asyncio.Queue[Event],
 ) -> AsyncGenerator[str, None]:
-    with server_fs_events(request.app.state.event_bus, queue):
+    async with server_fs_events(request.app.state.event_bus, queue):
         while not (await request.is_disconnected()):
-            event = await queue.get()
-            message = f"event: {type(event).__name__}\ndata: {event.as_json()}\n\n"
-            yield message
+            get_task = asyncio.create_task(queue.get())
+            done, _ = await asyncio.wait(
+                {get_task},
+                timeout=15.0,
+            )
+
+            if not done:
+                get_task.cancel()
+                yield ": keep-alive\n\n"
+                continue
+
+            event = get_task.result()
+            yield f"event: {type(event).__name__}\ndata: {event.as_json()}\n\n"
 
 
 @observer_router.get("/events/", dependencies=[auth_guard(UserRole.USER)])

@@ -51,7 +51,10 @@ class ImageWatcherHandler(PatternMatchingEventHandler):
 
     def on_created(self, event: WdDirCreatedEvent | WdFileCreatedEvent) -> None:
         src_file = self._path_resolver.to_relative(Path(str(event.src_path)))
-        created_time = datetime.fromtimestamp(src_file.stat().st_ctime, tz=UTC)
+        # avoiding a race condition by using current time instead of file's mtime
+        # should be very close to actual creation time, but there may be a case
+        # that the file stats are not yet uploaded when file is being initially created
+        created_time = datetime.now(tz=UTC)
         new_event = FileCreatedEvent(path=src_file, created_at=created_time)
         self._event_bus.publish(new_event)
 

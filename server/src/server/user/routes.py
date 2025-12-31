@@ -3,8 +3,9 @@ from typing import Annotated
 from fastapi import APIRouter, Body, Depends, HTTPException
 from pydantic import BaseModel
 
+from server.auth.guard import auth_guard
 from server.dependencies import user_service
-from server.user.models import User, UserSearchQuery
+from server.user.models import User, UserRole, UserSearchQuery
 
 
 class ListUsersResponse(BaseModel):
@@ -18,7 +19,7 @@ user_router = APIRouter(
 )
 
 
-@user_router.get("/")
+@user_router.get("/", dependencies=[auth_guard(UserRole.ADMIN)])
 async def list_users(
     user_service: user_service,
     query: Annotated[UserSearchQuery, Depends()],
@@ -28,7 +29,7 @@ async def list_users(
     return ListUsersResponse(users=users, total=total)
 
 
-@user_router.get("/{user_id}")
+@user_router.get("/{user_id}", dependencies=[auth_guard(UserRole.ADMIN)])
 async def get_user(
     user_id: int,
     user_service: user_service,
@@ -39,7 +40,7 @@ async def get_user(
     return user
 
 
-@user_router.post("/")
+@user_router.post("/", dependencies=[auth_guard(UserRole.ADMIN)])
 async def create_user(
     user: Annotated[User, Body()],
     user_service: user_service,
@@ -47,7 +48,7 @@ async def create_user(
     return user_service.create_user(user)
 
 
-@user_router.put("/{user_id}")
+@user_router.put("/{user_id}", dependencies=[auth_guard(UserRole.ADMIN)])
 async def update_user(
     user_id: int,
     new_user: User,
@@ -59,7 +60,7 @@ async def update_user(
     return updated_user
 
 
-@user_router.delete("/{user_id}")
+@user_router.delete("/{user_id}", dependencies=[auth_guard(UserRole.ADMIN)])
 async def delete_user(
     user_id: int,
     user_service: user_service,
