@@ -56,7 +56,7 @@ class BackgroundEmbedder:
         )
         self._event_bus.subscribe(
             FileMovedEvent,
-            self.on_file_moved,
+            self._on_file_moved,
         )
 
     def _on_file_created(self, event: FileCreatedEvent) -> None:
@@ -78,7 +78,7 @@ class BackgroundEmbedder:
             self.enqueue_file(event.path)
             self._image_service.remove_thumbnail_for_image(event.path)
 
-    def on_file_moved(self, event: FileMovedEvent) -> None:
+    def _on_file_moved(self, event: FileMovedEvent) -> None:
         # Could consider checking if the file was modified during the move
         # to avoid unnecessary re-embedding.
         self._indexing_service.remove_image(event.old_path)
@@ -140,4 +140,16 @@ class BackgroundEmbedder:
         self._event_bus.unsubscribe(
             FileCreatedEvent,
             self._on_file_created,
+        )
+        self._event_bus.unsubscribe(
+            FileDeletedEvent,
+            self._on_file_deleted,
+        )
+        self._event_bus.unsubscribe(
+            FileModifiedEvent,
+            self._on_file_modified,
+        )
+        self._event_bus.unsubscribe(
+            FileMovedEvent,
+            self._on_file_moved,
         )

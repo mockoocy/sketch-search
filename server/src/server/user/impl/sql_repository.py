@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from pydantic import EmailStr
 from sqlmodel import Session, col, func, select
 
@@ -12,7 +14,7 @@ class SqlUserRepository:
         statement = select(User).where(User.email == email)
         return self.db_session.exec(statement).first()
 
-    def get_user_by_id(self, user_id: int) -> User | None:
+    def get_user_by_id(self, user_id: UUID) -> User | None:
         statement = select(User).where(User.id == user_id)
         return self.db_session.exec(statement).first()
 

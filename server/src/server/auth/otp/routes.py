@@ -1,5 +1,3 @@
-from typing import Literal
-
 from fastapi import APIRouter, Request, Response
 from pydantic import BaseModel, EmailStr
 
@@ -11,24 +9,14 @@ from server.auth.otp.exceptions import (
     UserNotFoundError,
 )
 from server.dependencies import otp_auth_service, session_service
-from server.user.models import UserRole
+from server.session.models import (
+    AuthenticatedSessionResponse,
+    ChallengedSessionResponse,
+)
 
 
 class ErrorResponse(BaseModel):
     error: str
-
-
-class AnonymousSessionResponse(BaseModel):
-    state: Literal["anonymous"] = "anonymous"
-
-
-class ChallengedSessionResponse(BaseModel):
-    state: Literal["challenge_issued"] = "challenge_issued"
-
-
-class AuthenticatedSessionResponse(BaseModel):
-    state: Literal["authenticated"] = "authenticated"
-    role: UserRole
 
 
 class StartOtpRequest(BaseModel):
@@ -40,12 +28,12 @@ class VerifyOtpRequest(BaseModel):
 
 
 otp_router = APIRouter(
-    prefix="/api/auth",
+    prefix="/api/auth/otp",
     tags=["otp auth"],
 )
 
 
-@otp_router.post("/otp/start")
+@otp_router.post("/start")
 async def start_otp_process(
     body: StartOtpRequest,
     response: Response,
@@ -66,7 +54,7 @@ async def start_otp_process(
     return ChallengedSessionResponse()
 
 
-@otp_router.post("/otp/verify")
+@otp_router.post("/verify")
 async def verify_otp_code(
     body: VerifyOtpRequest,
     request: Request,
@@ -98,31 +86,4 @@ async def verify_otp_code(
         samesite="lax",
     )
     response.delete_cookie(key="challenge_token")
-    return AuthenticatedSessionResponse(state="authenticated", role=user.role)
-
-
-@otp_router.get("/session")
-async def get_session_status(
-    request: Request,
-    response: Response,
-    session_service: session_service,
-    otp_service: otp_auth_service,
-) -> (
-    AnonymousSessionResponse | AuthenticatedSessionResponse | ChallengedSessionResponse
-):
-    session_token = request.cookies.get("session_token")
-    if not session_token:
-        return AnonymousSessionResponse()
-    challenge_token = request.cookies.get("challenge_token")
-    if challenge_token and otp_service.validate_challenge_token(challenge_token):
-        return ChallengedSessionResponse()
-
-    if challenge_token:
-        response.delete_cookie(key="challenge_token")
-
-    user = session_service.validate_token(session_token)
-    if not user:
-        response.delete_cookie(key="session_token")
-        return AnonymousSessionResponse()
-
     return AuthenticatedSessionResponse(state="authenticated", role=user.role)

@@ -8,7 +8,7 @@ export const galleryRoute = createRoute({
   path: "/",
   component: Gallery,
   beforeLoad: async ({ context }) => {
-    document.title = "Gallery - MyApp";
+    document.title = "Gallery";
     const session = await context.queryClient.ensureQueryData(sessionQuery);
     if (session.state !== "authenticated") {
       throw redirect({ to: "/login/start" });

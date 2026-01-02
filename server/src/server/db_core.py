@@ -30,6 +30,8 @@ def init_db(config: ServerConfig) -> None:
         SQLModel.metadata.create_all(conn)
 
     # creates a default user, if none exists
+    if config.auth.kind == "none":
+        return
     with Session(engine) as session:
         user_count_statement = select(func.count(col(User.id)))
         user_count = session.exec(user_count_statement).one()

@@ -1,5 +1,6 @@
 from io import BytesIO
 from pathlib import Path
+from uuid import UUID
 
 import numpy as np
 from PIL import Image
@@ -73,13 +74,12 @@ class DefaultImageService:
             out = BytesIO()
             thumb.save(out, format=img.format)
             thumb_bytes = out.getvalue()
-
         self._image_repository.write_thumbnail(thumb_bytes, relative_path)
 
     def remove_thumbnail_for_image(self, relative_path: Path) -> None:
         self._image_repository.delete_thumbnail(relative_path)
 
-    def remove_image(self, image_id: int) -> None:
+    def remove_image(self, image_id: UUID) -> None:
         indexed_image = self._indexed_image_repository.get_image_by_id(image_id)
         if not indexed_image:
             return
@@ -109,7 +109,7 @@ class DefaultImageService:
 
     def search_by_image(
         self,
-        image_id: int,
+        image_id: UUID,
         top_k: int,
         query: ImageSearchQuery,
     ) -> list[IndexedImage]:
@@ -148,13 +148,13 @@ class DefaultImageService:
         app_logger.info("Found %d unindexed images.", len(unindexed))
         return unindexed
 
-    def get_thumbnail_for_image(self, image_id: int) -> Image.Image:
+    def get_thumbnail_for_image(self, image_id: UUID) -> Image.Image:
         indexed_image = self._indexed_image_repository.get_image_by_id(image_id)
         if not indexed_image:
             err_msg = f"Indexed image with ID {image_id} not found."
             raise ImageNotFoundError(err_msg)
 
-        rel = Path(indexed_image.path)
+        rel = Path(indexed_image.directory) / indexed_image.user_visible_name
 
         try:
             thumb_bytes = self._image_repository.read_thumbnail(rel)
@@ -204,5 +204,5 @@ class DefaultImageService:
     def get_image_by_path(self, image_path: Path) -> IndexedImage | None:
         return self._indexed_image_repository.get_image_by_path(image_path)
 
-    def get_image_by_id(self, image_id: int) -> IndexedImage | None:
+    def get_image_by_id(self, image_id: UUID) -> IndexedImage | None:
         return self._indexed_image_repository.get_image_by_id(image_id)

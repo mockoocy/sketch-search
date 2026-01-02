@@ -1,5 +1,6 @@
 from pathlib import Path
 from typing import Any
+from uuid import UUID
 
 from sqlmodel import Session, col, func, select
 
@@ -110,7 +111,7 @@ class PgVectorIndexedImageRepository:
         statement = select(IndexedImage).where(IndexedImage.path == str(image_path))
         return self._db_session.exec(statement).first()
 
-    def get_image_by_id(self, image_id: int) -> IndexedImage | None:
+    def get_image_by_id(self, image_id: UUID) -> IndexedImage | None:
         """Retrieve an image embedding from the repository by its ID."""
         statement = select(IndexedImage).where(IndexedImage.id == image_id)
         return self._db_session.exec(statement).first()

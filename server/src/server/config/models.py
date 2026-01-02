@@ -56,20 +56,15 @@ class SessionConfig(BaseModel):
 
 
 class EmbedderConfigFile(BaseModel):
-    """
-    Used to allow specifying configuration via Python file
-
-    Python file shall be injected as an absolute path
-    to allow for injecting custom Embedders from anywhere
-    """
-
     file: Path  # path to a python module
     class_name: str
+    args: list[Any] | None = None
     kwargs: dict[str, Any] | None = None
 
 
 class EmbedderConfigDotted(BaseModel):
     target: str  # module.submodule.ClassName format
+    args: list[Any] | None = None
     kwargs: dict[str, Any] | None = None
 
 
@@ -94,7 +89,7 @@ class PostgresConfig(BaseModel):
 class WatcherConfig(BaseModel):
     watched_directory: str = Field(default="./")
     watch_recursive: bool = Field(default=False)
-    files_batch_size: int = Field(default=4, ge=1)
+    files_batch_size: int = Field(default=8, ge=1)
 
 
 class ThumbnailConfig(BaseModel):

@@ -80,7 +80,7 @@ type UseSketchSearchOptions = {
 
 type UseImageSimilaritySearchOptions = {
   searchType: "image";
-  imageId: number;
+  imageId: string;
   query: ImageSearchQuery;
 };
 

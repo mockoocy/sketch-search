@@ -1,4 +1,5 @@
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import APIRouter, Body, Depends, HTTPException
 from pydantic import BaseModel
@@ -31,7 +32,7 @@ async def list_users(
 
 @user_router.get("/{user_id}", dependencies=[auth_guard(UserRole.ADMIN)])
 async def get_user(
-    user_id: int,
+    user_id: UUID,
     user_service: user_service,
 ) -> User:
     user = user_service.get_user_by_id(user_id)
@@ -50,7 +51,7 @@ async def create_user(
 
 @user_router.put("/{user_id}", dependencies=[auth_guard(UserRole.ADMIN)])
 async def update_user(
-    user_id: int,
+    user_id: UUID,
     new_user: User,
     user_service: user_service,
 ) -> User:
@@ -62,7 +63,7 @@ async def update_user(
 
 @user_router.delete("/{user_id}", dependencies=[auth_guard(UserRole.ADMIN)])
 async def delete_user(
-    user_id: int,
+    user_id: UUID,
     user_service: user_service,
 ) -> None:
     user_service.delete_user(user_id)

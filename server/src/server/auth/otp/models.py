@@ -1,5 +1,6 @@
 from datetime import UTC, datetime
 from enum import StrEnum
+from uuid import UUID, uuid4
 
 from sqlmodel import Field, SQLModel
 
@@ -16,7 +17,7 @@ def _create_utc_datetime() -> datetime:
 
 
 class LoginAttempt(SQLModel, table=True):
-    id: int | None = Field(default=None, primary_key=True)
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
     email: str = Field(index=True)
     ip: str
     failure_reason: LoginFailureReason | None = None
@@ -24,8 +25,8 @@ class LoginAttempt(SQLModel, table=True):
 
 
 class OtpCode(SQLModel, table=True):
-    id: int | None = Field(default=None, primary_key=True)
-    user_id: int = Field(foreign_key="user.id", ondelete="CASCADE")
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    user_id: UUID = Field(foreign_key="user.id", ondelete="CASCADE")
     code_hash: str
     challenge_token_hash: str
     expires_at: datetime

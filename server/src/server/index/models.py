@@ -1,5 +1,6 @@
 from datetime import UTC, datetime
 from typing import Annotated, Any, cast
+from uuid import UUID, uuid4
 
 import numpy as np
 import numpy.typing as npt
@@ -30,7 +31,7 @@ type Embedding = Annotated[
 
 
 class IndexedImage(SQLModel, table=True):
-    id: int = Field(default=None, primary_key=True)
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
     path: str = Field(index=True, unique=True)
     embedding: Embedding = Field(sa_column=Column(Vector(1536)))
     created_at: datetime = Field(default_factory=_now_factory)
@@ -41,5 +42,5 @@ class IndexedImage(SQLModel, table=True):
     user_visible_name: str
     content_hash: str
     model_name: str
-
+    directory: str = Field(default=".")
     model_config = ConfigDict(arbitrary_types_allowed=True)

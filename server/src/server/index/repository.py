@@ -1,5 +1,6 @@
 from pathlib import Path
 from typing import Protocol
+from uuid import UUID
 
 from server.images.models import ImageSearchQuery
 from server.index.models import Embedding, IndexedImage
@@ -31,7 +32,7 @@ class IndexedImageRepository(Protocol):
         """Retrieve an image embedding from the repository by its path."""
         ...
 
-    def get_image_by_id(self, image_id: int) -> IndexedImage | None:
+    def get_image_by_id(self, image_id: UUID) -> IndexedImage | None:
         """Retrieve an image embedding from the repository by its ID."""
         ...
 

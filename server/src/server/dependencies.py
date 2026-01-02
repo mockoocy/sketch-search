@@ -15,11 +15,14 @@ from server.session.service import SessionService
 from server.user.service import UserService
 
 
-def _get_otp_auth_service(request: Request) -> OtpAuthService:
-    return cast("OtpAuthService", request.app.state.otp_auth_service)
+def _get_otp_auth_service(request: Request) -> OtpAuthService | None:
+    try:
+        return cast("OtpAuthService", request.app.state.otp_auth_service)
+    except AttributeError:
+        return None
 
 
-otp_auth_service = Annotated[OtpAuthService, Depends(_get_otp_auth_service)]
+otp_auth_service = Annotated[OtpAuthService | None, Depends(_get_otp_auth_service)]
 
 
 def _get_session_service(request: Request) -> SessionService:

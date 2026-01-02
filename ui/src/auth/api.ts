@@ -52,7 +52,7 @@ export async function verifyOtp(
 
 export async function getSessionInfo(): Promise<SessionInfo> {
   return apiFetch<SessionInfo>({
-    url: "/api/auth/session",
+    url: "/api/session",
     context: "Get Session Info",
     method: "GET",
     credentials: "include",

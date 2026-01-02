@@ -148,7 +148,7 @@ export async function similaritySearch({
 }
 
 type ImageSearchByImagePayload = {
-  image_id: number;
+  image_id: string;
   top_k: number;
   query: ImageSearchQuery;
 };
@@ -176,7 +176,7 @@ export async function addImage({ file, directory }: AddImagePayload) {
   formData.append("directory", directory);
 
   return apiFetch<{ status: string }>({
-    url: "/api/images",
+    url: "/api/images/",
     method: "POST",
     body: formData,
     context: "Add Image",

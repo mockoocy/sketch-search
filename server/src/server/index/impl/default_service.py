@@ -90,6 +90,9 @@ class DefaultIndexingService:
             to_add.append(
                 IndexedImage(
                     path=rel.as_posix(),
+                    directory=self._path_resolver.to_relative(
+                        abs_path.parent,
+                    ).as_posix(),
                     embedding=np.array(embedding, dtype=np.float32),
                     user_visible_name=rel.name,
                     created_at=created_at,

@@ -1,6 +1,7 @@
 import io
 from pathlib import Path
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, Form, Response, UploadFile
 from PIL import Image
@@ -20,7 +21,7 @@ class SimilaritySearchFormData(BaseModel):
 
 
 class SearchByImagePayload(BaseModel):
-    image_id: int
+    image_id: UUID
     top_k: int
     query: ImageSearchQuery
 
@@ -102,7 +103,7 @@ async def add_image(
 
 @images_router.delete("/{image_id}/", dependencies=[auth_guard(UserRole.EDITOR)])
 async def delete_image(
-    image_id: int,
+    image_id: UUID,
     image_service: image_service,
 ) -> dict[str, str]:
     image_service.remove_image(image_id)
@@ -111,7 +112,7 @@ async def delete_image(
 
 @images_router.get("/{image_id}/thumbnail/", dependencies=[auth_guard(UserRole.USER)])
 async def get_image_thumbnail(
-    image_id: int,
+    image_id: UUID,
     image_service: image_service,
 ) -> Response:
     thumbnail = image_service.get_thumbnail_for_image(image_id)
@@ -127,7 +128,7 @@ async def get_image_thumbnail(
 
 @images_router.get("/{image_id}/view/", dependencies=[auth_guard(UserRole.USER)])
 async def view_image(
-    image_id: int,
+    image_id: UUID,
     image_service: image_service,
     server_config: server_config,
 ) -> Response:

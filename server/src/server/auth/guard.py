@@ -3,16 +3,19 @@ from typing import Annotated
 
 from fastapi import Cookie, Depends, HTTPException
 
-from server.dependencies import session_service
+from server.dependencies import server_config, session_service
 from server.logger import app_logger
 from server.user.models import UserRole
 
 
 async def get_current_user_role(
     session_service: session_service,
+    server_config: server_config,
     session_token: Annotated[str | None, Cookie()] = None,
 ) -> UserRole | None:
     app_logger.info("Getting current user role for session token: %s", session_token)
+    if server_config.auth.kind == "none":
+        return UserRole.ADMIN
     if session_token is None:
         return None
     user = session_service.validate_token(session_token)
