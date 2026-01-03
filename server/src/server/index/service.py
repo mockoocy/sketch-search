@@ -18,3 +18,7 @@ class IndexingService(Protocol):
     def get_collection_size(self) -> int:
         """Get the total number of indexed images in the collection."""
         ...
+
+    def reindex_images_with_different_model(self, model_name: str) -> None:
+        """Reindex images that were indexed with a different model than specified."""
+        ...

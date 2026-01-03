@@ -15,8 +15,8 @@ class IndexedImageRepository(Protocol):
         """Delete an image embedding from the repository by its ID."""
         ...
 
-    def update_image(self, image: IndexedImage) -> None:
-        """Update an existing image embedding in the repository."""
+    def update_images(self, images: list[IndexedImage]) -> None:
+        """Update existing image embeddings in the repository."""
         ...
 
     def get_k_nearest_images(
@@ -42,4 +42,8 @@ class IndexedImageRepository(Protocol):
 
     def get_total_images_count(self) -> int:
         """Get the total number of indexed images in the repository."""
+        ...
+
+    def get_images_with_different_model(self, model_name: str) -> list[IndexedImage]:
+        """Retrieve images that were indexed with a different model than specified"""
         ...

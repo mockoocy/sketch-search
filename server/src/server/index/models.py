@@ -32,15 +32,15 @@ type Embedding = Annotated[
 
 class IndexedImage(SQLModel, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True)
-    path: str = Field(index=True, unique=True)
-    embedding: Embedding = Field(sa_column=Column(Vector(1536)))
+    path: str = Field(index=True, unique=True, exclude=True)
+    embedding: Embedding = Field(exclude=True, sa_column=Column(Vector(1536)))
     created_at: datetime = Field(default_factory=_now_factory)
     modified_at: datetime = Field(
         default_factory=_now_factory,
         sa_column_kwargs={"onupdate": _now_factory},
     )
     user_visible_name: str
-    content_hash: str
-    model_name: str
+    content_hash: str = Field(exclude=True)
+    model_name: str = Field(exclude=True)
     directory: str = Field(default=".")
     model_config = ConfigDict(arbitrary_types_allowed=True)

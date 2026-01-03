@@ -30,7 +30,7 @@ export function LoginStart() {
   };
 
   return (
-    <Card className="w-1/3">
+    <Card className="w-1/4">
       <CardHeader>
         <CardTitle>Login</CardTitle>
         <CardDescription>Enter your email to receive an OTP.</CardDescription>

@@ -1,18 +1,14 @@
-import type {
-  DirectoryNode,
-  ImageSearchQuery,
-  IndexedImage,
+import {
+  searchImagesResponseSchema,
+  type DirectoryNode,
+  type ImageSearchQuery,
+  type SearchImagesResponse,
 } from "@/gallery/schema";
 import { apiFetch } from "@/general/api";
 
-export type ListImagesData = {
-  images: IndexedImage[];
-  total: number;
-};
-
 export async function listImages(
   query: ImageSearchQuery,
-): Promise<ListImagesData> {
+): Promise<SearchImagesResponse> {
   const url = new URL("/api/images", window.location.origin);
   const queryStrings = Object.fromEntries(
     Object.entries(query)
@@ -21,12 +17,13 @@ export async function listImages(
   );
   url.search = new URLSearchParams(queryStrings).toString();
 
-  return apiFetch<ListImagesData>({
+  const data = apiFetch<SearchImagesResponse>({
     url,
     context: "List Images",
     method: "GET",
     credentials: "include",
   });
+  return searchImagesResponseSchema.parse(await data);
 }
 
 type FileCreatedEvent = {
@@ -138,13 +135,14 @@ export async function similaritySearch({
   formData.append("image", image);
   formData.append("top_k", topK.toString());
   formData.append("query_json", JSON.stringify(query));
-  return await apiFetch<ListImagesData>({
+  const data = await apiFetch<SearchImagesResponse>({
     url: "/api/images/similarity-search",
     context: "Similarity Search",
     method: "POST",
     body: formData,
     credentials: "include",
   });
+  return searchImagesResponseSchema.parse(await data);
 }
 
 type ImageSearchByImagePayload = {
@@ -154,7 +152,7 @@ type ImageSearchByImagePayload = {
 };
 
 export async function searchByImage(body: ImageSearchByImagePayload) {
-  return await apiFetch<ListImagesData>({
+  const data = await apiFetch<SearchImagesResponse>({
     url: "/api/images/search-by-image/",
     context: "Search By Image",
     method: "POST",
@@ -164,6 +162,7 @@ export async function searchByImage(body: ImageSearchByImagePayload) {
       "Content-Type": "application/json",
     },
   });
+  return searchImagesResponseSchema.parse(await data);
 }
 
 export type AddImagePayload = {

@@ -69,6 +69,7 @@ class DefaultIndexingService:
         embeddings = self._embedder.embed(images_numpy)
 
         to_add = list[IndexedImage]()
+        to_update = list[IndexedImage]()
 
         for (rel, _img, content_hash), embedding in zip(items, embeddings):
             abs_path = self._path_resolver.image_abs(rel)
@@ -84,7 +85,7 @@ class DefaultIndexingService:
                 existing.modified_at = modified_at
                 existing.content_hash = content_hash
                 existing.model_name = self._embedder.name
-                self._indexed_repository.update_image(existing)
+                to_update.append(existing)
                 continue
 
             to_add.append(
@@ -104,6 +105,8 @@ class DefaultIndexingService:
 
         if to_add:
             self._indexed_repository.add_images(to_add)
+        if to_update:
+            self._indexed_repository.update_images(to_update)
 
     def remove_image(self, relative_path: Path) -> None:
         self._indexed_repository.delete_image_by_path(relative_path)
@@ -120,7 +123,14 @@ class DefaultIndexingService:
             )
         image.path = new_path.as_posix()
         image.user_visible_name = new_path.name
-        self._indexed_repository.update_image(image)
+        self._indexed_repository.update_images([image])
 
     def get_collection_size(self) -> int:
         return self._indexed_repository.get_total_images_count()
+
+    def reindex_images_with_different_model(self, model_name: str) -> None:
+        images_to_reindex = self._indexed_repository.get_images_with_different_model(
+            model_name,
+        )
+        relative_paths = [Path(image.path) for image in images_to_reindex]
+        self.embed_images(relative_paths)

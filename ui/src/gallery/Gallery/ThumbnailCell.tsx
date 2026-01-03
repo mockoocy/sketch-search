@@ -8,7 +8,7 @@ type ThumbnailCellProps = {
 };
 
 export function ThumbnailCell({ row }: ThumbnailCellProps) {
-  const { id, user_visible_name, path } = row.image;
+  const { id, user_visible_name, directory } = row.image;
 
   const url = `/api/images/${id}/thumbnail/`;
   return (
@@ -29,7 +29,9 @@ export function ThumbnailCell({ row }: ThumbnailCellProps) {
       />
       <div className="w-full flex flex-col items-center">
         <span className="text-foreground">{user_visible_name}</span>
-        <span className="text-muted-foreground">{path}</span>
+        <span className="text-muted-foreground">
+          {directory} / {user_visible_name}
+        </span>
       </div>
     </div>
   );

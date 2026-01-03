@@ -751,13 +751,13 @@ class Engine:
 
 
 def build_model() -> Embedder:
-    encoder = TimmBackbone(name=CFG.skitter.encoder_name).to(DEVICE)
+    encoder = TimmBackbone(name=CFG.model.encoder_name).to(DEVICE)
     encoder.eval()
 
     model = Embedder(
         backbone=encoder,
-        hidden_layer_size=CFG.skitter.projection_head_size,
-        embedding_size=CFG.skitter.embedding_size,
+        hidden_layer_size=CFG.model.projection_head_size,
+        embedding_size=CFG.model.embedding_size,
     ).to(DEVICE)
 
     return torch.compile(model, mode="reduce-overhead")

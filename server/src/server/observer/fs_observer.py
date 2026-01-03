@@ -66,7 +66,7 @@ class ImageWatcherHandler(PatternMatchingEventHandler):
     def on_moved(self, event: WdDirMovedEvent | WdFileMovedEvent) -> None:
         old_path = self._path_resolver.to_relative(Path(str(event.src_path)))
         new_path = self._path_resolver.to_relative(Path(str(event.dest_path)))
-        moved_at = datetime.fromtimestamp(new_path.stat().st_mtime, tz=UTC)
+        moved_at = datetime.now(tz=UTC)
         new_event = FileMovedEvent(
             old_path=old_path,
             new_path=new_path,
@@ -76,6 +76,6 @@ class ImageWatcherHandler(PatternMatchingEventHandler):
 
     def on_modified(self, event: WdFileSystemEvent) -> None:
         src_file = self._path_resolver.to_relative(Path(str(event.src_path)))
-        modified_at = datetime.fromtimestamp(src_file.stat().st_mtime, tz=UTC)
+        modified_at = datetime.now(tz=UTC)
         new_event = FileModifiedEvent(path=src_file, modified_at=modified_at)
         self._event_bus.publish(new_event)

@@ -73,12 +73,16 @@ class PgVectorIndexedImageRepository:
 
         statement = select(IndexedImage).where(IndexedImage.path == str(relative_path))
         image = self._db_session.exec(statement).first()
+        if image is None:
+            app_logger.warning(f"Image at path {image_path} not found for deletion.")
+            return
         self._db_session.delete(image)
         self._db_session.commit()
 
-    def update_image(self, image: IndexedImage) -> None:
-        """Update an existing image embedding in the repository."""
-        self._db_session.add(image)
+    def update_images(self, images: list[IndexedImage]) -> None:
+        """Update existing image embeddings in the repository."""
+        for image in images:
+            self._db_session.add(image)
         self._db_session.commit()
 
     def get_k_nearest_images(
@@ -136,3 +140,8 @@ class PgVectorIndexedImageRepository:
         """Get the total number of indexed images in the repository."""
         statement = select(func.count(col(IndexedImage.id)))
         return self._db_session.exec(statement).one()
+
+    def get_images_with_different_model(self, model_name: str) -> list[IndexedImage]:
+        """Retrieve images that were indexed with a different model than specified"""
+        statement = select(IndexedImage).where(IndexedImage.model_name != model_name)
+        return list(self._db_session.exec(statement).all())

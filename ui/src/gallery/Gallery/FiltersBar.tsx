@@ -64,7 +64,7 @@ export function FiltersBar({ onSubmit }: FiltersBarProps) {
 
   return (
     <form
-      className="flex flex-wrap items-end gap-4 mb-4"
+      className="w-full grid grid-cols-[auto_auto_auto] items-end gap-6 mb-4"
       onSubmit={handleSubmit(onValidSubmit)}
     >
       <div className="flex flex-col gap-2">
@@ -74,75 +74,78 @@ export function FiltersBar({ onSubmit }: FiltersBarProps) {
           placeholder="e.g. cat"
           className="w-56"
         />
+        <DirectoryScopeToggle />
       </div>
 
-      <div className="flex flex-col gap-2">
-        <div className="text-sm">Created min</div>
-        <Controller
-          control={control}
-          name="created_min"
-          render={({ field }) => (
-            <DatetimePicker date={field.value} onChange={field.onChange} />
-          )}
-        />
+      <div className="grid grid-rows-2 gap-4">
+        <div className="grid grid-cols-[8ch_1fr_1fr] items-center gap-3">
+          <div className="text-sm text-muted-foreground">Created</div>
+          <Controller
+            control={control}
+            name="created_min"
+            render={({ field }) => (
+              <DatetimePicker date={field.value} onChange={field.onChange} />
+            )}
+          />
+          <Controller
+            control={control}
+            name="created_max"
+            render={({ field }) => (
+              <DatetimePicker date={field.value} onChange={field.onChange} />
+            )}
+          />
+        </div>
+
+        <div className="grid grid-cols-[8ch_1fr_1fr] items-center gap-3">
+          <div className="text-sm text-muted-foreground">Modified</div>
+          <Controller
+            control={control}
+            name="modified_min"
+            render={({ field }) => (
+              <DatetimePicker date={field.value} onChange={field.onChange} />
+            )}
+          />
+          <Controller
+            control={control}
+            name="modified_max"
+            render={({ field }) => (
+              <DatetimePicker date={field.value} onChange={field.onChange} />
+            )}
+          />
+        </div>
       </div>
 
-      <div className="flex flex-col gap-2">
-        <div className="text-sm">Created max</div>
-        <Controller
-          control={control}
-          name="created_max"
-          render={({ field }) => (
-            <DatetimePicker date={field.value} onChange={field.onChange} />
-          )}
-        />
+      <div className="flex flex-wrap items-center gap-2 justify-end">
+        {similarityFilterProps && (
+          <div className="flex flex-col gap-2">
+            <span className="text-muted-foreground">Similar to:</span>
+            <ImageFilterPreview {...similarityFilterProps} />
+          </div>
+        )}
+        <div className="flex flex-col gap-4">
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() =>
+              reset({
+                name_contains: "",
+                created_min: undefined,
+                created_max: undefined,
+                modified_min: undefined,
+                modified_max: undefined,
+              })
+            }
+          >
+            Reset filters
+          </Button>
+          <Button type="submit">Apply filters</Button>
+        </div>
+
+        <div className="flex flex-col gap-4">
+          <SketchSearchDialog />
+          <AddImageDialog />
+        </div>
       </div>
-
-      <div className="flex flex-col gap-2">
-        <div className="text-sm">Modified min</div>
-        <Controller
-          control={control}
-          name="modified_min"
-          render={({ field }) => (
-            <DatetimePicker date={field.value} onChange={field.onChange} />
-          )}
-        />
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <div className="text-sm">Modified max</div>
-        <Controller
-          control={control}
-          name="modified_max"
-          render={({ field }) => (
-            <DatetimePicker date={field.value} onChange={field.onChange} />
-          )}
-        />
-      </div>
-
-      <Button
-        type="button"
-        variant="secondary"
-        onClick={() =>
-          reset({
-            name_contains: "",
-            created_min: undefined,
-            created_max: undefined,
-            modified_min: undefined,
-            modified_max: undefined,
-          })
-        }
-      >
-        Reset
-      </Button>
-      <SketchSearchDialog />
-      {similarityFilterProps && (
-        <ImageFilterPreview {...similarityFilterProps} />
-      )}
-      <Button type="submit">Apply filters</Button>
-      <DirectoryScopeToggle />
-
-      <AddImageDialog />
     </form>
   );
 }

@@ -12,13 +12,15 @@ export function Navbar() {
         </div>
 
         <nav className="flex items-center justify-between gap-6 text-sm">
-          <Link
-            to="/"
-            className="text-muted-foreground hover:text-foreground"
-            activeProps={{ className: "text-foreground font-medium" }}
-          >
-            Gallery
-          </Link>
+          <RequireRole role="user">
+            <Link
+              to="/"
+              className="text-muted-foreground hover:text-foreground"
+              activeProps={{ className: "text-foreground font-medium" }}
+            >
+              Gallery
+            </Link>
+          </RequireRole>
 
           <RequireRole role="admin">
             <Link

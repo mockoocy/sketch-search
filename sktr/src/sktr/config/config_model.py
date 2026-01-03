@@ -49,13 +49,13 @@ class ValidationSettings(BaseModel):
     eval_every_steps: int = Field(default=100, gt=0)
 
 
-class SkitterSettings(BaseModel):
+class ModelSettings(BaseModel):
     projection_head_size: int = Field(default=256, gt=0, le=4096)
     embedding_size: int = Field(default=256, gt=0, le=4096)
     encoder_name: str = "resnet50"
 
 
 class Config(BaseModel):
-    skitter: SkitterSettings = SkitterSettings()
+    model: ModelSettings = ModelSettings()
     training: TrainingSettings = TrainingSettings()
     validation: ValidationSettings = ValidationSettings()

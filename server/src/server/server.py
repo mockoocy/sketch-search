@@ -16,9 +16,11 @@ from server.images.impl.default_service import DefaultImageService
 from server.images.impl.fs_repository import FsImageRepository
 from server.images.routes import images_router
 from server.images.service import ImageService
+from server.index.embedder import Embedder
 from server.index.impl.default_service import DefaultIndexingService
 from server.index.impl.pgvector_repository import PgVectorIndexedImageRepository
 from server.index.registry import EmbedderRegistry
+from server.index.service import IndexingService
 from server.logger import app_logger
 from server.observer.background_embedder import BackgroundEmbedder
 from server.observer.path_resolver import PathResolver
@@ -34,6 +36,8 @@ from server.user.routes import user_router
 async def bootstrap_index(
     image_service: ImageService,
     background_embedder: BackgroundEmbedder,
+    embedder: Embedder,
+    indexing_service: IndexingService,
 ) -> None:
     app_logger.info("Bootstrapping image index...")
     image_service.clean_stale_indexed_images()
@@ -41,6 +45,7 @@ async def bootstrap_index(
     for path in missing_images:
         background_embedder.enqueue_file(path)
         image_service.add_thumbnail_for_image(path)
+    indexing_service.reindex_images_with_different_model(embedder.name)
     app_logger.info("Image index bootstrapping complete.")
 
 
@@ -103,6 +108,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     await bootstrap_index(
         image_service=app.state.image_service,
         background_embedder=app.state.background_embedder,
+        embedder=app.state.embedder,
+        indexing_service=app.state.indexing_service,
     )
     app_logger.info("Server startup complete.")
     yield
