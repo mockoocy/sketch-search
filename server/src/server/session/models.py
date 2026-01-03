@@ -28,3 +28,8 @@ class ChallengedSessionResponse(BaseModel):
 class AuthenticatedSessionResponse(BaseModel):
     state: Literal["authenticated"] = "authenticated"
     role: UserRole
+
+
+type SessionResponse = (
+    AnonymousSessionResponse | ChallengedSessionResponse | AuthenticatedSessionResponse
+)

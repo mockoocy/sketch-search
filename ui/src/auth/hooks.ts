@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
-import { sessionQuery, startOtp, verifyOtp } from "./api";
+import { logout, sessionQuery, startOtp, verifyOtp } from "./api";
 import type { StartOtpInput, VerifyOtpInput } from "./schema";
 
 export function useStartOtp() {
@@ -32,4 +32,16 @@ export function useVerifyOtp() {
 
 export function useCurrentSession() {
   return useQuery(sessionQuery);
+}
+export function useLogout() {
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  return useMutation({
+    mutationFn: logout,
+    onSuccess: (sessionData) => {
+      toast.success("Logged out successfully");
+      queryClient.setQueryData(["session"], sessionData);
+      navigate({ to: "/login/start" });
+    },
+  });
 }

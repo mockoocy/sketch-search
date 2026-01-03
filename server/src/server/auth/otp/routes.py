@@ -86,4 +86,4 @@ async def verify_otp_code(
         samesite="lax",
     )
     response.delete_cookie(key="challenge_token")
-    return AuthenticatedSessionResponse(state="authenticated", role=user.role)
+    return AuthenticatedSessionResponse(role=user.role)

@@ -1,8 +1,10 @@
 import { apiFetch } from "@/general/api";
 import {
+  anonymousSessionSchema,
   authenticatedSessionSchema,
   challengeIssuesSessionSchema,
   sessionSchema,
+  type AnonymousSession,
   type AuthenticatedSession,
   type ChallengeIssuesSession,
   type SessionInfo,
@@ -56,3 +58,13 @@ export const sessionQuery = {
   queryKey: ["session"] as const,
   queryFn: getSessionInfo,
 };
+
+export async function logout(): Promise<AnonymousSession> {
+  const data = apiFetch<AnonymousSession>({
+    url: "/api/session/logout/",
+    context: "Logout",
+    method: "POST",
+    credentials: "include",
+  });
+  return anonymousSessionSchema.parse(await data);
+}
