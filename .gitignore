@@ -28,3 +28,7 @@ models/
 # a subject to change :D
 **/config.yaml
 **/server_config.yaml
+
+# These are by default mounted as volumes in Docker
+/gallery_example/*
+/thumbnails/*

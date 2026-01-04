@@ -35,6 +35,7 @@ export type UseFsEventsOptions = {
   onDelete: (event: FsEvent["FileDeletedEvent"]) => void;
   onModify: (event: FsEvent["FileModifiedEvent"]) => void;
   onMove: (event: FsEvent["FileMovedEvent"]) => void;
+  onEmbedded: (event: FsEvent["FileEmbeddedEvent"]) => void;
 };
 
 export function useFsEvents({
@@ -42,6 +43,7 @@ export function useFsEvents({
   onDelete,
   onModify,
   onMove,
+  onEmbedded,
 }: Partial<UseFsEventsOptions>) {
   useEffect(() => {
     sseFsEventsClient.acquire();
@@ -64,11 +66,16 @@ export function useFsEvents({
     if (onMove) {
       removers.push(sseFsEventsClient.addListener("FileMovedEvent", onMove));
     }
+    if (onEmbedded) {
+      removers.push(
+        sseFsEventsClient.addListener("FileEmbeddedEvent", onEmbedded),
+      );
+    }
     return () => {
       removers.forEach((remove) => remove());
       sseFsEventsClient.release();
     };
-  }, [onCreate, onDelete, onModify, onMove]);
+  }, [onCreate, onDelete, onModify, onMove, onEmbedded]);
 }
 
 type UseSketchSearchOptions = {

@@ -46,11 +46,17 @@ type FileMovedEvent = {
   moved_at: string;
 };
 
+type FileEmbeddedEvent = {
+  count: number;
+  to_index: number;
+};
+
 export type FsEvent = {
   FileCreatedEvent: FileCreatedEvent;
   FileDeletedEvent: FileDeletedEvent;
   FileModifiedEvent: FileModifiedEvent;
   FileMovedEvent: FileMovedEvent;
+  FileEmbeddedEvent: FileEmbeddedEvent;
 };
 
 /**
@@ -66,6 +72,7 @@ class SseClient {
     FileDeletedEvent: new Set(),
     FileModifiedEvent: new Set(),
     FileMovedEvent: new Set(),
+    FileEmbeddedEvent: new Set(),
   };
   private refCount = 0;
   private readonly url: string;

@@ -79,6 +79,10 @@ export function Gallery() {
       queryClient.invalidateQueries({ queryKey: imageQueryKeys.all });
       toast.success(`File moved: from ${event.old_path} to ${event.new_path}`);
     },
+    onEmbedded: (event) => {
+      queryClient.invalidateQueries({ queryKey: imageQueryKeys.all });
+      toast.success(`Files embedded: ${event.count} files processed.`);
+    },
   });
 
   return (
