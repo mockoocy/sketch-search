@@ -1,7 +1,6 @@
 import pytest
 import torch
-
-from sktr.metrics import compute_map_at_k, compute_map_at_k_chunked
+from sketch_search_model.metrics import compute_map_at_k, compute_map_at_k_chunked
 
 
 @pytest.mark.parametrize("seed", [0, 1, 2])

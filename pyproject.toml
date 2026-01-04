@@ -1,6 +1,6 @@
 [tool.uv.workspace]
-members = ["server", "sktr"]
+members = ["server", "model"]
 
 [tool.uv.sources]
-sktr = { workspace = true }
+sketch_search_model = { workspace = true }
 server = { workspace = true }

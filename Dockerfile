@@ -4,7 +4,7 @@ WORKDIR /app
 
 COPY pyproject.toml uv.lock ./
 COPY server ./server
-COPY sktr ./sktr
+COPY model ./model
 
 
 RUN uv sync

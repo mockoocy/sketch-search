@@ -29,9 +29,10 @@ services:
       SERVER__PORT: "8000"
     volumes:
       - ./server:/app/server
-      - ./sktr:/app/sktr
+      - ./model:/app/model
       - ./gallery_example:/images
       - ./thumbnails:/thumbnails
+      - ./weights:/weights
 
   ui:
     build: ./ui
