@@ -56,3 +56,13 @@ class FileMovedEvent(Event):
         data["old_path"] = str(self.old_path)
         data["new_path"] = str(self.new_path)
         return json.dumps(data)
+
+
+@dataclass
+class ImagesIndexedEvent(Event):
+    count: int
+    to_index: int
+
+    def as_json(self) -> str:
+        data = asdict(self)
+        return json.dumps(data)

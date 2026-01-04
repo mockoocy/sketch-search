@@ -17,6 +17,7 @@ from server.events.events import (
     FileDeletedEvent,
     FileModifiedEvent,
     FileMovedEvent,
+    ImagesIndexedEvent,
 )
 from server.user.models import UserRole
 
@@ -46,52 +47,51 @@ async def server_fs_events(
         queue: The queue to send event data to.
     """
 
-    def on_created(event: FileCreatedEvent) -> None:
-        queue.put_nowait(event)
-
-    def on_deleted(event: FileDeletedEvent) -> None:
-        queue.put_nowait(event)
-
-    def on_modified(event: FileModifiedEvent) -> None:
-        queue.put_nowait(event)
-
-    def on_moved(event: FileMovedEvent) -> None:
+    def on_fs_event(event: Event) -> None:
         queue.put_nowait(event)
 
     event_bus.subscribe(
         FileCreatedEvent,
-        on_created,
+        on_fs_event,
     )
     event_bus.subscribe(
         FileDeletedEvent,
-        on_deleted,
+        on_fs_event,
     )
     event_bus.subscribe(
         FileModifiedEvent,
-        on_modified,
+        on_fs_event,
     )
     event_bus.subscribe(
         FileMovedEvent,
-        on_moved,
+        on_fs_event,
+    )
+    event_bus.subscribe(
+        ImagesIndexedEvent,
+        on_fs_event,
     )
     try:
         yield
     finally:
         event_bus.unsubscribe(
             FileCreatedEvent,
-            on_created,
+            on_fs_event,
         )
         event_bus.unsubscribe(
             FileDeletedEvent,
-            on_deleted,
+            on_fs_event,
         )
         event_bus.unsubscribe(
             FileModifiedEvent,
-            on_modified,
+            on_fs_event,
         )
         event_bus.unsubscribe(
             FileMovedEvent,
-            on_moved,
+            on_fs_event,
+        )
+        event_bus.unsubscribe(
+            ImagesIndexedEvent,
+            on_fs_event,
         )
 
 

@@ -47,4 +47,5 @@ class EmbedderRegistry:
                 )
             kwargs = embedder_config.kwargs or {}
             embedders[name] = embedder_class(**kwargs)
+            embedders[name].name = name
         return embedders

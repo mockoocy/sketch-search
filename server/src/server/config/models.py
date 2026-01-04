@@ -114,11 +114,11 @@ class ServerConfig(BaseSettings):
     embedder_registry: EmbedderRegistryConfig = Field(
         default_factory=lambda: EmbedderRegistryConfig(
             embedders={
-                "sktr": EmbedderConfigDotted(
-                    target="server.embedders.sktr.SktrEmbedder",
+                "default": EmbedderConfigDotted(
+                    target="server.embedders.default.DefaultEmbedder",
                 ),
             },
-            chosen_embedder="sktr",
+            chosen_embedder="default",
         ),
     )
     database: PostgresConfig = PostgresConfig()

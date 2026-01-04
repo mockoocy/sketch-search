@@ -12,6 +12,7 @@ from server.events.events import (
     FileDeletedEvent,
     FileModifiedEvent,
     FileMovedEvent,
+    ImagesIndexedEvent,
 )
 from server.images.service import ImageService
 from server.index.service import IndexingService
@@ -122,6 +123,10 @@ class BackgroundEmbedder:
                 )
             except Exception:  # noqa: BLE001
                 app_logger.exception("Error during background embedding")
+            else:
+                self._event_bus.publish(
+                    ImagesIndexedEvent(count=len(batch), to_index=self._queue.qsize()),
+                )
 
     def enqueue_file(self, file_path: Path) -> None:
         self._loop.call_soon_threadsafe(self._queue.put_nowait, file_path)
