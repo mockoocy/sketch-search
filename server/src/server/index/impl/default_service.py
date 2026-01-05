@@ -30,8 +30,12 @@ class DefaultIndexingService:
 
     def embed_images(self, relative_paths: list[Path]) -> None:
         items = list[tuple[Path, Image.Image, str]]()
+        seen = set[Path]()
+        deduplicated_paths = [
+            path for path in relative_paths if not (path in seen or seen.add(path))
+        ]
 
-        for rel in relative_paths:
+        for rel in deduplicated_paths:
             try:
                 data = self._image_repository.read_image(rel)
             except InvalidFsAccessError:

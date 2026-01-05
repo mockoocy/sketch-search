@@ -41,6 +41,6 @@ class IndexedImage(SQLModel, table=True):
     )
     user_visible_name: str
     content_hash: str = Field(exclude=True)
-    model_name: str = Field(exclude=True)
+    model_name: str
     directory: str = Field(default=".")
     model_config = ConfigDict(arbitrary_types_allowed=True)

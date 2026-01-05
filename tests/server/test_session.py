@@ -1,8 +1,6 @@
 from fastapi.testclient import TestClient
 
-from server.config.models import NoAuthConfig, ServerConfig
-from server.server import create_app
-from tests.conftest import INTEGRATION_TEST_THE_ONLY_USER, CapturingOtpSender
+from tests.conftest import DEFAULT_TEST_USER, CapturingOtpSender
 
 
 def test_correct_session_state(default_client: TestClient) -> None:
@@ -11,7 +9,7 @@ def test_correct_session_state(default_client: TestClient) -> None:
     assert response.json()["state"] == "anonymous"
     response = default_client.post(
         "/api/auth/otp/start",
-        json={"email": INTEGRATION_TEST_THE_ONLY_USER},
+        json={"email": DEFAULT_TEST_USER},
     )
     response = default_client.get(
         "/api/session",
@@ -21,7 +19,7 @@ def test_correct_session_state(default_client: TestClient) -> None:
     assert response.json()["state"] == "challenge_issued"
     challenge_token = default_client.cookies.get("challenge_token")
     otp_sender: CapturingOtpSender = default_client.app.state.otp_sender
-    otp_code = otp_sender.sent[INTEGRATION_TEST_THE_ONLY_USER]
+    otp_code = otp_sender.sent[DEFAULT_TEST_USER]
     default_client.post(
         "/api/auth/otp/verify",
         json={"code": otp_code},
@@ -42,7 +40,7 @@ def test_correct_session_state(default_client: TestClient) -> None:
 def test_logout_clears_challenge_token(default_client: TestClient) -> None:
     response = default_client.post(
         "/api/auth/otp/start",
-        json={"email": INTEGRATION_TEST_THE_ONLY_USER},
+        json={"email": DEFAULT_TEST_USER},
     )
     assert response.status_code == 200
     assert default_client.cookies.get("challenge_token") is not None
@@ -53,12 +51,12 @@ def test_logout_clears_challenge_token(default_client: TestClient) -> None:
 def test_logout_clears_session_token(default_client: TestClient) -> None:
     response = default_client.post(
         "/api/auth/otp/start",
-        json={"email": INTEGRATION_TEST_THE_ONLY_USER},
+        json={"email": DEFAULT_TEST_USER},
     )
     assert response.status_code == 200
     challenge_token = default_client.cookies.get("challenge_token")
     otp_sender: CapturingOtpSender = default_client.app.state.otp_sender
-    otp_code = otp_sender.sent[INTEGRATION_TEST_THE_ONLY_USER]
+    otp_code = otp_sender.sent[DEFAULT_TEST_USER]
     response = default_client.post(
         "/api/auth/otp/verify",
         json={"code": otp_code},
@@ -75,11 +73,8 @@ def test_logout_without_tokens(default_client: TestClient) -> None:
     assert response.status_code == 200
 
 
-def test_no_auth_config_is_alwaus_admin(settings: ServerConfig) -> None:
-    new_settings = settings.model_copy(update={"auth": NoAuthConfig()})
-    app = create_app(new_settings)
-    with TestClient(app) as client:
-        response = client.get("/api/session")
-        assert response.status_code == 200
-        assert response.json()["state"] == "authenticated"
-        assert response.json()["role"] == "admin"
+def test_no_auth_config_is_alwaus_admin(no_auth_client: TestClient) -> None:
+    response = no_auth_client.get("/api/session")
+    assert response.status_code == 200
+    assert response.json()["state"] == "authenticated"
+    assert response.json()["role"] == "admin"

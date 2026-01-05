@@ -1,21 +1,21 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from tests.conftest import INTEGRATION_TEST_THE_ONLY_USER
+from tests.conftest import DEFAULT_TEST_USER
 
 
 @pytest.fixture
 def admin_client(default_client: TestClient) -> TestClient:
     response = default_client.post(
         "/api/auth/otp/start",
-        json={"email": INTEGRATION_TEST_THE_ONLY_USER},
+        json={"email": DEFAULT_TEST_USER},
     )
     assert response.status_code == 200
 
     challenge_token = default_client.cookies.get("challenge_token")
     assert challenge_token is not None
 
-    code = default_client.app.state.otp_sender.sent[INTEGRATION_TEST_THE_ONLY_USER]
+    code = default_client.app.state.otp_sender.sent[DEFAULT_TEST_USER]
     default_client.cookies.set("challenge_token", challenge_token)
     response = default_client.post(
         "/api/auth/otp/verify",
