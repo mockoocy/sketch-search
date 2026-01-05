@@ -175,9 +175,12 @@ def test_remove_image(no_auth_client: TestClient, tmp_path: Path) -> None:
     img.save(image_path)
 
     image_service: ImageService = no_auth_client.app.state.image_service
-    sleep(3)
+    sleep(2)
     new_img = image_service.get_image_by_path("test_remove_image.jpg")
     assert new_img is not None
 
     response = no_auth_client.delete(f"/api/images/{new_img.id}/")
     assert response.status_code == 200
+    sleep(2)
+    deleted_img = image_service.get_image_by_path("test_remove_image.jpg")
+    assert deleted_img is None

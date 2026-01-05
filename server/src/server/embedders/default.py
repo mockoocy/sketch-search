@@ -1,7 +1,7 @@
 import numpy as np
 import numpy.typing as npt
 import torch
-from sketch_search_model.model import Embedder as TheEmbedder
+from sketch_search_model.model import Embedder as PhotoSketchEmbedder
 from sketch_search_model.model import TimmBackbone
 
 from server.index.models import Embedding
@@ -13,11 +13,11 @@ class DefaultEmbedder:
         self,
         embedding_size: int = 1536,
         hidden_layer_size: int = 2048,
-        timm_encoder_name: str = "convnext_tiny.fb_in22k",
+        timm_backbone: str = "convnext_tiny.fb_in22k",
         weights_path: str | None = None,
     ) -> None:
-        backbone = TimmBackbone(name=timm_encoder_name, pretrained=True)
-        self.model = TheEmbedder(
+        backbone = TimmBackbone(name=timm_backbone, pretrained=True)
+        self.model = PhotoSketchEmbedder(
             backbone=backbone,
             embedding_size=embedding_size,
             hidden_layer_size=hidden_layer_size,
