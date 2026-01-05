@@ -27,6 +27,7 @@ from server.logger import app_logger
 from server.observer.background_embedder import BackgroundEmbedder
 from server.observer.path_resolver import PathResolver
 from server.observer.routes import observer_router
+from server.routes import health_router
 from server.session.impl.default_service import DefaultSessionService
 from server.session.impl.sql_repository import SqlSessionRepository
 from server.session.routes import session_router
@@ -47,7 +48,9 @@ async def bootstrap_index(
     for path in missing_images:
         background_embedder.enqueue_file(path)
         image_service.add_thumbnail_for_image(path)
-    indexing_service.reindex_images_with_different_model(embedder.name)
+    to_reindex = indexing_service.paths_to_reindex(embedder.name)
+    for path in to_reindex:
+        background_embedder.enqueue_file(path)
     app_logger.info("Image index bootstrapping complete.")
 
 
@@ -126,7 +129,7 @@ def create_app(config: ServerConfig, *, otp_sender: OtpSender | None = None) -> 
         app.state.otp_sender = otp_sender or SmtpOtpSender(
             config=app.state.config.auth.smtp,
         )
-
+    app.include_router(health_router)
     if app.state.config.auth.kind == "otp":
         app.include_router(otp_router)
         app.include_router(user_router)

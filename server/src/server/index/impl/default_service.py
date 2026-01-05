@@ -132,9 +132,8 @@ class DefaultIndexingService:
     def get_collection_size(self) -> int:
         return self._indexed_repository.get_total_images_count()
 
-    def reindex_images_with_different_model(self, model_name: str) -> None:
+    def paths_to_reindex(self, model_name: str) -> list[Path]:
         images_to_reindex = self._indexed_repository.get_images_with_different_model(
             model_name,
         )
-        relative_paths = [Path(image.path) for image in images_to_reindex]
-        self.embed_images(relative_paths)
+        return [Path(image.path) for image in images_to_reindex]

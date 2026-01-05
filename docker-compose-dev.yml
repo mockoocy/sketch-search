@@ -33,6 +33,11 @@ services:
       - ./gallery_example:/images
       - ./thumbnails:/thumbnails
       - ./weights:/weights
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
 
   ui:
     build: ./ui

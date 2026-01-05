@@ -41,7 +41,6 @@ class BackgroundEmbedder:
         self._image_service = image_service
         self._event_bus = event_bus
         self._path_resolver = path_resolver
-
         self._observer: BaseObserver = self._create_observer()
         self._event_bus.subscribe(
             FileCreatedEvent,

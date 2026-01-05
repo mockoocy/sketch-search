@@ -19,6 +19,6 @@ class IndexingService(Protocol):
         """Get the total number of indexed images in the collection."""
         ...
 
-    def reindex_images_with_different_model(self, model_name: str) -> None:
+    def paths_to_reindex(self, model_name: str) -> list[Path]:
         """Reindex images that were indexed with a different model than specified."""
         ...
