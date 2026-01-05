@@ -1,18 +1,21 @@
-from typing import TYPE_CHECKING, cast
+import argparse
+import os
 
 import uvicorn
 
+from server.config.models import ServerConfig
 from server.server import create_app
-
-if TYPE_CHECKING:
-    from server.config.models import ServerConfig
-
-
-app = create_app()
 
 
 def serve() -> None:
-    config = cast("ServerConfig", app.state.config)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config", type=str)
+    args = parser.parse_args()
+
+    if args.config:
+        os.environ["SERVER_CONFIG_PATH"] = args.config
+    config = ServerConfig()
+    app = create_app(config=config)
     # I want to use the same log level for uvicorn as for the app
     # at least for now...
     # Uvicorn wants lowercase log levels

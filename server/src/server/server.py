@@ -4,13 +4,15 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
+from sqlmodel import Session
 
 from server.auth.otp.impl.default_service import DefaultOtpAuthService
 from server.auth.otp.impl.smtp_sender import SmtpOtpSender
 from server.auth.otp.impl.sql_repository import SqlOtpRepository
 from server.auth.otp.routes import otp_router
+from server.auth.otp.sender import OtpSender
 from server.config.models import ServerConfig
-from server.db_core import get_db_session, init_db
+from server.db_core import get_db_engine, init_db
 from server.events.event_bus import EventBus
 from server.images.impl.default_service import DefaultImageService
 from server.images.impl.fs_repository import FsImageRepository
@@ -51,13 +53,13 @@ async def bootstrap_index(
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
-    app.state.config = ServerConfig()
     app.state.event_bus = EventBus()
     app.state.path_resolver = PathResolver(
         watcher_config=app.state.config.watcher,
         thumbnail_config=app.state.config.thumbnail,
     )
-    app.state.db_session = get_db_session(app.state.config.database)
+    engine = get_db_engine(app.state.config.database)
+    app.state.db_session = Session(engine)
     app_logger.setLevel(app.state.config.log_level)
     app.state.user_repository = SqlUserRepository(app.state.db_session)
     app.state.user_service = DefaultUserService(app.state.user_repository)
@@ -72,7 +74,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     app.state.embedder = app.state.embedder_registry.chosen_embedder
     if app.state.config.auth.kind == "otp":
         app.state.otp_auth_repository = SqlOtpRepository(app.state.db_session)
-        app.state.otp_sender = SmtpOtpSender(config=app.state.config.auth.smtp)
         app.state.otp_auth_service = DefaultOtpAuthService(
             session_config=app.state.config.session,
             otp_repository=app.state.otp_auth_repository,
@@ -114,11 +115,17 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     app_logger.info("Server startup complete.")
     yield
     app.state.background_embedder.stop()
+    app.state.db_session.close()
+    engine.dispose()
 
 
-def create_app() -> FastAPI:
+def create_app(config: ServerConfig, *, otp_sender: OtpSender | None = None) -> FastAPI:
     app = FastAPI(lifespan=lifespan)
-    app.state.config = ServerConfig()
+    app.state.config = config
+    if config.auth.kind == "otp":
+        app.state.otp_sender = otp_sender or SmtpOtpSender(
+            config=app.state.config.auth.smtp,
+        )
 
     if app.state.config.auth.kind == "otp":
         app.include_router(otp_router)

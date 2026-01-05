@@ -1,7 +1,8 @@
+import contextlib
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Body, Depends, HTTPException
+from fastapi import APIRouter, Body, Depends, HTTPException, Response
 from pydantic import BaseModel
 
 from server.auth.guard import auth_guard
@@ -45,7 +46,9 @@ async def get_user(
 async def create_user(
     user: Annotated[User, Body()],
     user_service: user_service,
+    response: Response,
 ) -> User:
+    response.status_code = 201
     return user_service.create_user(user)
 
 
@@ -54,10 +57,12 @@ async def update_user(
     user_id: UUID,
     new_user: User,
     user_service: user_service,
+    response: Response,
 ) -> User:
     updated_user = user_service.update_user(user_id, new_user)
     if not updated_user:
         raise HTTPException(status_code=404, detail="User not found")
+    response.status_code = 201
     return updated_user
 
 
@@ -65,5 +70,8 @@ async def update_user(
 async def delete_user(
     user_id: UUID,
     user_service: user_service,
+    response: Response,
 ) -> None:
-    user_service.delete_user(user_id)
+    with contextlib.suppress(ValueError):
+        user_service.delete_user(user_id)
+    response.status_code = 204

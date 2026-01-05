@@ -20,7 +20,7 @@ class UserRole(StrEnum):
 
 class User(SQLModel, table=True):
     id: UUID = Field(default_factory=uuid4, primary_key=True)
-    email: str
+    email: str = Field(index=True, nullable=False, unique=True)
     role: UserRole = Field(default=UserRole.USER)
 
 

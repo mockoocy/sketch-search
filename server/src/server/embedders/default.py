@@ -1,9 +1,9 @@
 import numpy as np
 import numpy.typing as npt
 import torch
+from sketch_search_model.model import Embedder as TheEmbedder
+from sketch_search_model.model import TimmBackbone
 
-from model.model import Embedder as TheEmbedder
-from model.model import TimmBackbone
 from server.index.models import Embedding
 from server.logger import app_logger
 

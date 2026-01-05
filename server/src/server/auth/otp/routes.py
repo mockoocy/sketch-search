@@ -41,9 +41,8 @@ async def start_otp_process(
 ) -> ChallengedSessionResponse | ErrorResponse:
     try:
         challenge_token = otp_service.start(email=body.email)
-    except UserNotFoundError as ex:
-        response.status_code = 404
-        return ErrorResponse(error=str(ex))
+    except UserNotFoundError:
+        return ChallengedSessionResponse()  # don't reveal user existence
     response.set_cookie(
         key="challenge_token",
         value=challenge_token,

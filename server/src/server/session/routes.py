@@ -14,33 +14,7 @@ session_router = APIRouter(
 )
 
 
-async def _session_status_for_otp(
-    request: Request,
-    response: Response,
-    session_service: session_service,
-    otp_service: otp_auth_service,
-) -> (
-    AnonymousSessionResponse | AuthenticatedSessionResponse | ChallengedSessionResponse
-):
-    session_token = request.cookies.get("session_token")
-    if not session_token:
-        return AnonymousSessionResponse()
-    challenge_token = request.cookies.get("challenge_token")
-    if challenge_token and otp_service.validate_challenge_token(challenge_token):
-        return ChallengedSessionResponse()
-
-    if challenge_token:
-        response.delete_cookie(key="challenge_token")
-
-    user = session_service.validate_token(session_token)
-    if not user:
-        response.delete_cookie(key="session_token")
-        return AnonymousSessionResponse()
-
-    return AuthenticatedSessionResponse(state="authenticated", role=user.role)
-
-
-@session_router.get("/")
+@session_router.get("")
 async def get_session_status(
     request: Request,
     response: Response,
@@ -60,9 +34,9 @@ async def get_session_status(
         )
 
     session_token = request.cookies.get("session_token")
-    if not session_token:
-        return AnonymousSessionResponse()
     challenge_token = request.cookies.get("challenge_token")
+    if not session_token and not challenge_token:
+        return AnonymousSessionResponse()
     if challenge_token and otp_service.validate_challenge_token(challenge_token):
         return ChallengedSessionResponse()
 

@@ -1,4 +1,5 @@
 import logging
+import os
 from pathlib import Path
 from typing import Any, Literal
 
@@ -9,9 +10,6 @@ from pydantic_settings import (
     SettingsConfigDict,
 )
 from pydantic_settings.sources import YamlConfigSettingsSource
-
-_CFG_PATH = Path(__file__).parent.parent.parent.parent / "server_config.yaml"
-
 
 # Based on the ones supported by the uvicorn logger
 type LogLevel = Literal[
@@ -101,7 +99,7 @@ class ServerConfig(BaseSettings):
     host: str = Field(default="127.0.0.1")
     # ge 1024, because occupying well-known ports is cringe
     port: int = Field(default=8000, ge=1024, le=65535)
-    log_level: LogLevel = Field(default="info")
+    log_level: LogLevel = Field(default="INFO")
     dev: bool = Field(default=False)
     auth: AuthConfig = Field(default_factory=lambda: NoAuthConfig())
     session: SessionConfig = Field(default_factory=lambda: SessionConfig())
@@ -139,9 +137,15 @@ class ServerConfig(BaseSettings):
         dotenv_settings: PydanticBaseSettingsSource,  # noqa: ARG003
         file_secret_settings: PydanticBaseSettingsSource,  # noqa: ARG003
     ) -> tuple[PydanticBaseSettingsSource, ...]:
-        return (
-            # apparently, the order matters. The first one is the most authoritative
+        sources = [
             init_settings,
-            env_settings,
-            YamlConfigSettingsSource(settings_cls, _CFG_PATH),
-        )
+        ]
+        cfg_path = os.environ.get("SERVER_CONFIG_PATH")
+        if cfg_path:
+            path = Path(cfg_path)
+            if not path.exists():
+                err_msg = f"Config file not found: {path}"
+                raise FileNotFoundError(err_msg)
+            sources.append(YamlConfigSettingsSource(settings_cls, path))
+        sources.append(env_settings)
+        return tuple(sources)

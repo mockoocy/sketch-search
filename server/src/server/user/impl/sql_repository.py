@@ -28,7 +28,9 @@ class SqlUserRepository:
         select_statement = select(User).where(User.id == user.id)
         existing_user = self.db_session.exec(select_statement).first()
         if not existing_user:
-            err_msg = f"User with id {user.id} not found"
+            select_all_statement = select(User)
+            all_users = self.db_session.exec(select_all_statement).all()
+            err_msg = f"User with id {user.id} not found, existing users: {all_users}"
             raise ValueError(err_msg)
         for key, value in user.dict(exclude_unset=True).items():
             setattr(existing_user, key, value)

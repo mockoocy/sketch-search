@@ -11,7 +11,7 @@ from server.config.models import PostgresConfig, ServerConfig
 from server.user.models import UserRole
 
 
-def _get_db_engine(postgres_config: PostgresConfig) -> Engine:
+def get_db_engine(postgres_config: PostgresConfig) -> Engine:
     connect_string = (
         f"postgresql+psycopg://{postgres_config.user}:"
         f"{postgres_config.password}@"
@@ -23,7 +23,7 @@ def _get_db_engine(postgres_config: PostgresConfig) -> Engine:
 
 
 def init_db(config: ServerConfig) -> None:
-    engine = _get_db_engine(config.database)
+    engine = get_db_engine(config.database)
 
     with engine.begin() as conn:
         conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
@@ -43,8 +43,3 @@ def init_db(config: ServerConfig) -> None:
             )
             session.add(default_user)
             session.commit()
-
-
-def get_db_session(config: PostgresConfig) -> Session:
-    engine = _get_db_engine(config)
-    return Session(engine)
