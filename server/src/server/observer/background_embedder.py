@@ -73,7 +73,8 @@ class BackgroundEmbedder:
             self.enqueue_file(event.path)
             return
         original_content_hash = original_indexed_image.content_hash
-        new_content_hash = create_content_hash(Image.open(event.path).convert("RGB"))
+        new_path = self._path_resolver.image_abs(event.path)
+        new_content_hash = create_content_hash(Image.open(new_path).convert("RGB"))
         if original_content_hash != new_content_hash:
             self._indexing_service.remove_image(event.path)
             self.enqueue_file(event.path)
