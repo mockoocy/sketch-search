@@ -49,3 +49,7 @@ def serve() -> None:
             log_level=log_level,
             timeout_graceful_shutdown=5,
         )
+
+
+if __name__ == "__main__":
+    serve()

@@ -116,7 +116,7 @@ async def _event_generator(
             yield f"event: {type(event).__name__}\ndata: {event.as_json()}\n\n"
 
 
-@observer_router.get("/events/", dependencies=[auth_guard(UserRole.USER)])
+@observer_router.get("/events", dependencies=[auth_guard(UserRole.USER)])
 def fs_events(
     request: Request,
 ) -> StreamingResponse:

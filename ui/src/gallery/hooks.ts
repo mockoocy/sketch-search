@@ -8,16 +8,24 @@ import {
   sseFsEventsClient,
   type AddImagePayload,
   type FsEvent,
-  type ListImagesData,
 } from "@/gallery/api";
 import type {
   DirectoryNode,
   ImageSearchQuery,
   IndexedImage,
+  SearchImagesResponse,
 } from "@/gallery/schema";
 import { findNodeByPath } from "@/gallery/utils";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
+
+async function hashBlob(blob: Blob): Promise<string> {
+  const buf = await blob.arrayBuffer();
+  const hash = await crypto.subtle.digest("SHA-256", buf);
+  return Array.from(new Uint8Array(hash))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
 
 export const imageQueryKeys = {
   all: ["images"] as const,
@@ -26,7 +34,7 @@ export const imageQueryKeys = {
     [...imageQueryKeys.lists(), query] as const,
   similaritySearch: (query: ImageSearchQuery, revision: number) =>
     [...imageQueryKeys.list(query), "similarity", revision] as const,
-  searchByImage: (query: ImageSearchQuery, imageId: number) =>
+  searchByImage: (query: ImageSearchQuery, imageId: string) =>
     [...imageQueryKeys.list(query), "search-by-image", imageId] as const,
 } as const;
 
@@ -102,7 +110,7 @@ export type UseImageSearchOptions =
   | UseSketchSearchOptions;
 function useImageSearch(options: UseImageSearchOptions) {
   let queryKey: readonly unknown[];
-  let queryFn: () => Promise<ListImagesData>;
+  let queryFn: () => Promise<SearchImagesResponse>;
 
   switch (options.searchType) {
     case "plain":
@@ -123,6 +131,10 @@ function useImageSearch(options: UseImageSearchOptions) {
         options.query,
         options.revision,
       );
+      hashBlob(options.sketch).then((hash) =>
+        console.log("Sketch hash:", hash),
+      );
+      console.log({ revision: options.revision });
       queryFn = () =>
         similaritySearch({
           image: options.sketch,
@@ -148,7 +160,7 @@ export function useAddImage() {
 export function useDeleteImage() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (imageId: number) => deleteImage(imageId),
+    mutationFn: (imageId: string) => deleteImage(imageId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: imageQueryKeys.lists() });
     },
@@ -181,27 +193,28 @@ export function useGetGalleryRows(searchOptions: UseImageSearchOptions) {
       error,
       rows,
       gallerySize: 0,
+      changedImagesCount: 0,
     };
   }
+
   const { directory: directoryPath } = searchOptions.query;
+
   if (directoryPath === null) {
-    const images = imagesQuery.data.images;
-    for (const image of images) {
-      rows.push({
-        kind: "image",
-        image,
-      });
+    for (const image of imagesQuery.data.images) {
+      rows.push({ kind: "image", image });
     }
+
     return {
       isLoading,
       error,
       rows,
-      gallerySize: imagesQuery.data?.total || 0,
+      gallerySize: imagesQuery.data.total || 0,
     };
   }
-  const directories = directoriesQuery.data;
 
+  const directories = directoriesQuery.data;
   const relativeRoot = findNodeByPath(directories, directoryPath);
+
   if (relativeRoot === null) {
     return {
       isLoading,
@@ -210,29 +223,24 @@ export function useGetGalleryRows(searchOptions: UseImageSearchOptions) {
       gallerySize: 0,
     };
   }
+
   const parentDirectory = findNodeByPath(directories, relativeRoot.parent);
-  if (parentDirectory !== null) {
-    rows.push({
-      kind: "back",
-      parentDirectory,
-    });
+  if (parentDirectory) {
+    rows.push({ kind: "back", parentDirectory });
   }
+
   for (const childDir of relativeRoot.children) {
-    rows.push({
-      kind: "directory",
-      directory: childDir,
-    });
+    rows.push({ kind: "directory", directory: childDir });
   }
+
   for (const image of imagesQuery.data.images) {
-    rows.push({
-      kind: "image",
-      image,
-    });
+    rows.push({ kind: "image", image });
   }
+
   return {
     isLoading,
     error,
     rows,
-    gallerySize: imagesQuery.data?.total || 0,
+    gallerySize: imagesQuery.data.total || 0,
   };
 }

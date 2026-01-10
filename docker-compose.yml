@@ -1,6 +1,7 @@
 services:
   db:
     image: pgvector/pgvector:pg18-trixie
+    profiles: ["app", "db"]
     restart: always
     environment:
       POSTGRES_USER: postgres
@@ -10,41 +11,47 @@ services:
       - "5432:5432"
     volumes:
       - ./tmp/db-data:/var/lib/postgresql
+
   server:
     build: .
+    profiles: ["app"]
     restart: always
     depends_on:
       - db
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
     environment:
       SERVER__DATABASE__DATABASE: db
       SERVER__DATABASE__USER: postgres
       SERVER__DATABASE__PASSWORD: password
       SERVER__DATABASE__HOST: db
       SERVER__DATABASE__PORT: "5432"
-      SERVER__DEV: "true"
-      SERVER__WATCHER__WATCHED_DIRECTORY: /images/
-      SERVER__THUMBNAIL__THUMBNAIL_DIRECTORY: /thumbnails/
-      SERVER__LOG_LEVEL: DEBUG
-      SERVER__HOST: "0.0.0.0"
-      SERVER__PORT: "8000"
+      SERVER_CONFIG_PATH: /app/config.yml
     volumes:
       - ./server:/app/server
       - ./model:/app/model
       - ./gallery_example:/images
       - ./thumbnails:/thumbnails
       - ./weights:/weights
+      - ./dev-config.yml:/app/config.yml
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
 
-  ui:
-    build: ./ui
+  frontend:
+    build:
+      context: ./ui
+      dockerfile: Dockerfile
+    profiles: ["app"]
     restart: always
     ports:
-      - "5173:5173"
+      - "80:80"
     depends_on:
       - server
-    volumes:
-      - ./ui/:/app

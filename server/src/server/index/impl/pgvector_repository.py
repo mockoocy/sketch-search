@@ -133,7 +133,6 @@ class PgVectorIndexedImageRepository:
             .offset((query.page - 1) * query.items_per_page)
             .limit(query.items_per_page)
         )
-        app_logger.info(f"ordering by {query.order_by} {query.direction}")
         return list(self._db_session.exec(stmt).all())
 
     def get_total_images_count(self) -> int:

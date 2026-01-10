@@ -10,7 +10,7 @@ type SketchVariantProps = {
 
 type ImageVariantProps = {
   variant: "image";
-  imageId: number;
+  imageId: string;
 };
 
 export type ImageFilterPreviewProps = SketchVariantProps | ImageVariantProps;

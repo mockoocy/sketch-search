@@ -1,7 +1,6 @@
 from pathlib import Path
 
 from server.images.errors import ImageFormatError, InvalidFsAccessError
-from server.logger import app_logger
 from server.observer.path_resolver import PathResolver
 
 IMG_EXTENSIONS = {"jpg", "jpeg", "png", "webp", "gif"}
@@ -17,7 +16,6 @@ class FsImageRepository:
 
         full_path.parent.mkdir(parents=True, exist_ok=True)
         full_path.write_bytes(image)
-        app_logger.info("Wrote image to %s", full_path)
 
     def write_thumbnail(self, image: bytes, relative_path: Path) -> None:
         self._validate_extension(relative_path)
@@ -25,7 +23,6 @@ class FsImageRepository:
 
         full_path.parent.mkdir(parents=True, exist_ok=True)
         full_path.write_bytes(image)
-        app_logger.info("Wrote thumbnail to %s", full_path)
 
     def delete_image(self, relative_path: Path) -> None:
         full_path = self._resolver.image_abs(relative_path)

@@ -21,7 +21,7 @@ user_router = APIRouter(
 )
 
 
-@user_router.get("/", dependencies=[auth_guard(UserRole.ADMIN)])
+@user_router.get("", dependencies=[auth_guard(UserRole.ADMIN)])
 async def list_users(
     user_service: user_service,
     query: Annotated[UserSearchQuery, Depends()],

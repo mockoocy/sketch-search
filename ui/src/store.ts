@@ -4,12 +4,11 @@ import { create } from "zustand";
 type SketchSimilaritySource = {
   kind: "sketch";
   blob: Blob;
-  revision: number;
 };
 
 type ImageSimilaritySource = {
   kind: "image";
-  imageId: number;
+  imageId: string;
 };
 
 export type SimilaritySource =
@@ -19,12 +18,13 @@ export type SimilaritySource =
 
 type SimilaritySearchState = {
   similaritySource: SimilaritySource | null;
-  setImageId: (imageId: number) => void;
+  setImageId: (imageId: string) => void;
   setSketch: (blob: Blob) => void;
   clearSource: () => void;
 };
 
 type QueryState = {
+  sketchRevision: number;
   query: ImageSearchQuery;
   setPage: (page: number) => void;
   setSorting: (
@@ -47,6 +47,7 @@ type GalleryStore = SimilaritySearchState & QueryState;
 
 export const useGalleryStore = create<GalleryStore>((set) => ({
   similaritySource: null,
+  sketchRevision: 0,
   setImageId: (imageId) =>
     set(() => ({
       similaritySource: { kind: "image", imageId },
@@ -56,8 +57,9 @@ export const useGalleryStore = create<GalleryStore>((set) => ({
       similaritySource: null,
     })),
   setSketch: (blob) =>
-    set(() => ({
-      similaritySource: { kind: "sketch", blob, revision: 0 },
+    set((state) => ({
+      sketchRevision: state.sketchRevision + 1,
+      similaritySource: { kind: "sketch", blob },
     })),
   query: {
     page: 1,

@@ -23,10 +23,6 @@ type FiltersBarProps = {
   onSubmit: (filters: Filters) => void;
 };
 
-function toIso(date?: Date) {
-  return date ? date.toISOString() : undefined;
-}
-
 function propsForSimilarityFilter(
   similaritySource: SimilaritySource,
 ): ImageFilterPreviewProps | null {
@@ -55,10 +51,10 @@ export function FiltersBar({ onSubmit }: FiltersBarProps) {
   const onValidSubmit = (values: FiltersFormValues) => {
     onSubmit({
       name_contains: values.name_contains,
-      created_min: toIso(values.created_min),
-      created_max: toIso(values.created_max),
-      modified_min: toIso(values.modified_min),
-      modified_max: toIso(values.modified_max),
+      created_min: values.created_min,
+      created_max: values.created_max,
+      modified_min: values.modified_min,
+      modified_max: values.modified_max,
     });
   };
 

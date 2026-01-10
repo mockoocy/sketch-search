@@ -11,7 +11,6 @@ from server.auth.guard import auth_guard
 from server.dependencies import image_service, indexing_service, server_config
 from server.images.models import ImageSearchQuery
 from server.index.models import IndexedImage
-from server.logger import app_logger
 from server.user.models import UserRole
 
 
@@ -37,7 +36,7 @@ images_router = APIRouter(
 )
 
 
-@images_router.get("/", dependencies=[auth_guard(UserRole.USER)])
+@images_router.get("", dependencies=[auth_guard(UserRole.USER)])
 async def list_images(
     image_service: image_service,
     indexing_service: indexing_service,
@@ -110,14 +109,13 @@ async def delete_image(
     return {"status": "success"}
 
 
-@images_router.get("/{image_id}/thumbnail/", dependencies=[auth_guard(UserRole.USER)])
+@images_router.get("/{image_id}/thumbnail", dependencies=[auth_guard(UserRole.USER)])
 async def get_image_thumbnail(
     image_id: UUID,
     image_service: image_service,
 ) -> Response:
     thumbnail = image_service.get_thumbnail_for_image(image_id)
     image_format = thumbnail.format if thumbnail.format else "JPEG"
-    app_logger.info(f"Serving thumbnail for image {image_id} in format {image_format}")
     with io.BytesIO() as output:
         thumbnail.save(output, format=image_format)
         return Response(
@@ -126,7 +124,7 @@ async def get_image_thumbnail(
         )
 
 
-@images_router.get("/{image_id}/view/", dependencies=[auth_guard(UserRole.USER)])
+@images_router.get("/{image_id}/view", dependencies=[auth_guard(UserRole.USER)])
 async def view_image(
     image_id: UUID,
     image_service: image_service,

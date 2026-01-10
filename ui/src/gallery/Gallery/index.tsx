@@ -39,7 +39,7 @@ export function Gallery() {
   const query = useGalleryStore((state) => state.query);
   const setFilters = useGalleryStore((state) => state.setFilters);
   const setSorting = useGalleryStore((state) => state.setSorting);
-
+  const sketchRevision = useGalleryStore((state) => state.sketchRevision);
   const searchOptions: UseImageSearchOptions =
     similaritySource == null
       ? {
@@ -55,7 +55,7 @@ export function Gallery() {
         : {
             searchType: "sketch",
             query,
-            revision: similaritySource.revision,
+            revision: sketchRevision,
             sketch: similaritySource.blob,
           };
 

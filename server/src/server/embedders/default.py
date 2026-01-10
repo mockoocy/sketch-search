@@ -24,6 +24,7 @@ class DefaultEmbedder:
         )
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         app_logger.info("Loading embedder on device: %s", device)
+        app_logger.info("Weights path: %s", weights_path)
         if weights_path:
             app_logger.info("Loading embedder weights from: %s", weights_path)
             state_dict = torch.load(

@@ -4,6 +4,7 @@ from pathlib import Path
 
 from server.config.models import EmbedderConfigDotted, EmbedderRegistryConfig
 from server.index.embedder import Embedder
+from server.logger import app_logger
 
 
 def _load_class_from_file(file: Path, class_name: str) -> type:
@@ -27,25 +28,30 @@ class EmbedderRegistry:
 
     def __init__(self, config: EmbedderRegistryConfig) -> None:
         self._config = config
-        self._embedders: dict[str, Embedder] = self._populate_registry()
+        app_logger.info(f"Configuring EmbedderRegistry with config: {config}")
+        self._embedder = self._create_embedder()
 
     @property
     def chosen_embedder(self) -> Embedder:
         """Get the chosen embedder instance based on the configuration."""
-        return self._embedders[self._config.chosen_embedder]
+        return self._embedder
 
-    def _populate_registry(self) -> dict[str, Embedder]:
-        """Populate the registry with embedder instances based on the configuration."""
-        embedders: dict[str, Embedder] = {}
-        for name, embedder_config in self._config.embedders.items():
-            if isinstance(embedder_config, EmbedderConfigDotted):
-                embedder_class = _load_class_from_dotted_path(embedder_config.target)
-            else:
-                embedder_class = _load_class_from_file(
-                    embedder_config.file,
-                    embedder_config.class_name,
-                )
-            kwargs = embedder_config.kwargs or {}
-            embedders[name] = embedder_class(**kwargs)
-            embedders[name].name = name
-        return embedders
+    def _create_embedder(self) -> Embedder:
+        embedder_config = self._config.embedders[self._config.chosen_embedder]
+        if isinstance(embedder_config, EmbedderConfigDotted):
+            embedder_class = _load_class_from_dotted_path(embedder_config.target)
+        else:
+            embedder_class = _load_class_from_file(
+                Path(embedder_config.file),
+                embedder_config.class_name,
+            )
+
+        app_logger.info(
+            f"Loading embedder '{self._config.chosen_embedder}' "
+            f"using class '{embedder_class.__name__}'",
+        )
+        kwargs = embedder_config.kwargs or {}
+        args = embedder_config.args or []
+        embedder = embedder_class(*args, **kwargs)
+        embedder.name = self._config.chosen_embedder
+        return embedder

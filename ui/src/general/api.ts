@@ -39,7 +39,7 @@ export async function apiFetch<TData>({
       response,
     );
   }
-  if (body?.error && !response.ok) {
+  if ((body as FailedApiResponse).error && !response.ok) {
     const failedBody = body as FailedApiResponse;
     throw new ApiError(failedBody.error, context, response);
   }

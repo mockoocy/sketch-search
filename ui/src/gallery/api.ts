@@ -190,7 +190,7 @@ export async function addImage({ file, directory }: AddImagePayload) {
   });
 }
 
-export async function deleteImage(imageId: number) {
+export async function deleteImage(imageId: string) {
   return await apiFetch<void>({
     url: `/api/images/${imageId}`,
     context: "Delete Image",

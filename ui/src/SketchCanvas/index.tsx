@@ -18,7 +18,7 @@ export type SketchCanvasHandle = {
   clear: () => void;
   undo: () => void;
   redo: () => void;
-  exportPng: (blobCallback: (blob: Blob | null) => void) => void;
+  exportPng: (blobCallback: (blob: Blob) => void) => void;
   isEmpty: () => boolean;
 };
 
@@ -173,10 +173,11 @@ export const SketchCanvas = forwardRef<
         }
         onCommit?.();
       },
-      exportPng: (blobCallback: (blob: Blob | null) => void) => {
+      exportPng: (blobCallback: (blob: Blob) => void) => {
         const canvas = canvasRef.current;
         if (!canvas) return null;
         canvas.toBlob((blob) => {
+          if (!blob) return;
           blobCallback(blob);
         }, "image/png");
       },

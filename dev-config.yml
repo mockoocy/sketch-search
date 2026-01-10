@@ -1,0 +1,29 @@
+host: 0.0.0.0
+dev: true
+database:
+  database: db
+  user: postgres
+  password: password
+embedder_registry:
+  chosen_embedder: model_large
+  embedders:
+    model_large:
+      target: server.embedders.default.DefaultEmbedder
+      kwargs:
+        weights_path: /weights/convnext_base_mixed.pth
+        timm_backbone: convnext_base.fb_in22k_ft_in1k
+    model_medium:
+      target: server.embedders.default.DefaultEmbedder
+      kwargs:
+        weights_path: /weights/convnext_tiny_phase_1.pth
+        timm_backbone: "convnext_tiny.fb_in22k"
+    model_small:
+      target: server.embedders.default.DefaultEmbedder
+      kwargs:
+        weights_path: /weights/efficientnet_phase_1.pth
+        timm_backbone: efficientnet_b0.ra_in1k
+
+watcher:
+  watch_recursive: true
+  watched_directory: /images
+  files_batch_size: 64
